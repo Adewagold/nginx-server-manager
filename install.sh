@@ -33,6 +33,13 @@ if [[ $EUID -eq 0 ]]; then
    exit 1
 fi
 
+# Check if we're in the right directory
+if [[ ! -f "requirements.txt" ]] || [[ ! -d "app" ]]; then
+   print_error "This script must be run from the nginx-manager directory"
+   print_status "Please cd to the nginx-manager directory and run: ./install.sh"
+   exit 1
+fi
+
 # Detect OS
 if [[ -f /etc/debian_version ]]; then
     OS="debian"
@@ -89,53 +96,72 @@ else
     print_status "Certbot already installed"
 fi
 
-# Create nginx-manager user if it doesn't exist
-if ! id "nginx-manager" &>/dev/null; then
-    print_status "Creating nginx-manager user..."
-    sudo useradd -r -s /bin/bash -d /opt/nginx-manager -m nginx-manager
-else
-    print_status "nginx-manager user already exists"
-fi
+# Get current user
+CURRENT_USER=$(whoami)
+print_status "Setting up for user: $CURRENT_USER"
 
 # Create necessary directories
 print_status "Creating directories..."
-sudo mkdir -p /opt/nginx-manager
 sudo mkdir -p /var/www
 sudo mkdir -p /var/log/nginx-manager
+sudo mkdir -p /etc/nginx/sites-available
+sudo mkdir -p /etc/nginx/sites-enabled
 
-# Set up directory permissions
-print_status "Setting up permissions..."
-sudo chown -R nginx-manager:nginx-manager /opt/nginx-manager
-sudo chown -R nginx-manager:www-data /var/www
-sudo chmod -R 755 /var/www
+# Create local data directories for the application
+mkdir -p data/nginx-sites-available
+mkdir -p data/nginx-sites-enabled
+mkdir -p data/www
+mkdir -p data/backups
 
-# Add nginx-manager user to www-data group
-sudo usermod -a -G www-data nginx-manager
+# Set up nginx directory permissions
+print_status "Setting up nginx directory permissions..."
+# Make nginx directories writable by www-data group
+sudo chown -R $CURRENT_USER:www-data /etc/nginx/sites-available
+sudo chown -R $CURRENT_USER:www-data /etc/nginx/sites-enabled
+sudo chmod -R 775 /etc/nginx/sites-available
+sudo chmod -R 775 /etc/nginx/sites-enabled
 
-# Grant nginx-manager user sudo access for specific nginx commands
+# Set up web root permissions
+sudo chown -R $CURRENT_USER:www-data /var/www
+sudo chmod -R 775 /var/www
+
+# Add current user to www-data group
+print_status "Adding $CURRENT_USER to www-data group..."
+sudo usermod -a -G www-data $CURRENT_USER
+
+# Also add www-data user to the current user's group for file access
+sudo usermod -a -G $CURRENT_USER www-data
+
+# Grant current user sudo access for specific nginx commands
 print_status "Setting up sudo permissions for nginx operations..."
 sudo tee /etc/sudoers.d/nginx-manager > /dev/null <<EOF
-# Allow nginx-manager user to manage nginx without password
-nginx-manager ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
-nginx-manager ALL=(ALL) NOPASSWD: /bin/systemctl reload nginx
-nginx-manager ALL=(ALL) NOPASSWD: /bin/systemctl restart nginx
-nginx-manager ALL=(ALL) NOPASSWD: /bin/systemctl status nginx
-nginx-manager ALL=(ALL) NOPASSWD: /usr/bin/certbot
+# Allow current user to manage nginx without password
+$CURRENT_USER ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
+$CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl reload nginx
+$CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart nginx
+$CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl status nginx
+$CURRENT_USER ALL=(ALL) NOPASSWD: /usr/bin/certbot
+$CURRENT_USER ALL=(ALL) NOPASSWD: /bin/ln -sf /etc/nginx/sites-available/* /etc/nginx/sites-enabled/
+$CURRENT_USER ALL=(ALL) NOPASSWD: /bin/rm /etc/nginx/sites-enabled/*
 EOF
 
-# Copy application files to /opt/nginx-manager
-print_status "Installing application files..."
-sudo cp -r . /opt/nginx-manager/
-sudo chown -R nginx-manager:nginx-manager /opt/nginx-manager
-
-# Install Python dependencies
+# Install Python dependencies in current directory
 print_status "Installing Python dependencies..."
-cd /opt/nginx-manager
-sudo -u nginx-manager python3 -m venv venv
-sudo -u nginx-manager ./venv/bin/pip install -r requirements.txt
+if [[ ! -d "venv" ]]; then
+    print_status "Creating virtual environment..."
+    python3 -m venv venv
+fi
+print_status "Installing required packages..."
+./venv/bin/pip install -r requirements.txt
+
+# Set up log directory permissions
+sudo mkdir -p /var/log/nginx-manager
+sudo chown -R $CURRENT_USER:www-data /var/log/nginx-manager
+sudo chmod -R 775 /var/log/nginx-manager
 
 # Create systemd service
 print_status "Creating systemd service..."
+INSTALL_DIR=$(pwd)
 sudo tee /etc/systemd/system/nginx-manager.service > /dev/null <<EOF
 [Unit]
 Description=Nginx Site Manager
@@ -143,11 +169,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=nginx-manager
-Group=nginx-manager
-WorkingDirectory=/opt/nginx-manager
-Environment=PATH=/opt/nginx-manager/venv/bin
-ExecStart=/opt/nginx-manager/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8080
+User=$CURRENT_USER
+Group=www-data
+WorkingDirectory=$INSTALL_DIR
+Environment=PATH=$INSTALL_DIR/venv/bin
+ExecStart=$INSTALL_DIR/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=3
 
@@ -160,11 +186,15 @@ sudo systemctl daemon-reload
 sudo systemctl enable nginx-manager
 
 # Create initial config if it doesn't exist
-if [[ ! -f /opt/nginx-manager/config.yaml ]]; then
+if [[ ! -f config.yaml ]]; then
     print_status "Creating initial configuration..."
-    sudo -u nginx-manager cp /opt/nginx-manager/config.yaml.example /opt/nginx-manager/config.yaml
-    print_warning "Please edit /opt/nginx-manager/config.yaml to customize your settings"
+    cp config.yaml.example config.yaml
+    print_warning "Please edit config.yaml to customize your settings"
 fi
+
+# Initialize database
+print_status "Initializing database..."
+./venv/bin/python -c "from app.models import init_db; init_db()" 2>/dev/null || true
 
 # Start nginx if not running
 if ! systemctl is-active --quiet nginx; then
@@ -174,13 +204,19 @@ if ! systemctl is-active --quiet nginx; then
 fi
 
 print_status "Installation completed successfully!"
+print_status "==================================="
 print_status "Next steps:"
-echo "1. Edit /opt/nginx-manager/config.yaml to customize settings"
+echo ""
+echo "1. Edit config.yaml to customize settings (especially change default password)"
 echo "2. Start the service: sudo systemctl start nginx-manager"
-echo "3. Access the web interface at http://localhost:8080"
-echo "4. Default login: admin / admin123 (change this in config.yaml)"
-
-print_warning "Remember to:"
+echo "3. Access the web interface at http://$(hostname -I | awk '{print $1}'):8080"
+echo "4. Default login: admin / admin123"
+echo ""
+print_warning "IMPORTANT POST-INSTALLATION STEPS:"
+echo "- You MUST log out and log back in for group permissions to take effect"
+echo "- Or run: newgrp www-data (for current session only)"
 echo "- Change the default admin password in config.yaml"
-echo "- Configure your firewall to allow access to port 8080"
-echo "- Review the configuration before starting the service"
+echo "- Configure your firewall to allow access to port 8080 if needed"
+echo ""
+print_status "To check service status: sudo systemctl status nginx-manager"
+print_status "To view logs: sudo journalctl -u nginx-manager -f"
