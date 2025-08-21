@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Site - Nginx Site Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-plus me-2"></i>Create New Site</h1>
+            <a href="/sites" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Sites
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form id="createSiteForm">
+                    <!-- Basic Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="siteName" class="form-label">
+                                <i class="fas fa-tag me-1"></i>Site Name *
+                            </label>
+                            <input type="text" class="form-control" id="siteName" name="name" required
+                                   pattern="^[a-zA-Z0-9_-]+$" 
+                                   title="Only letters, numbers, hyphens, and underscores allowed">
+                            <div class="form-text">
+                                Used for internal identification and nginx config filename
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="domain" class="form-label">
+                                <i class="fas fa-globe me-1"></i>Domain *
+                            </label>
+                            <input type="text" class="form-control" id="domain" name="domain" required
+                                   placeholder="example.com">
+                            <div class="form-text">
+                                The domain name that will serve this site
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Site Type -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <i class="fas fa-cogs me-1"></i>Site Type *
+                        </label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card site-type-card" data-type="static">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-file-code fa-2x text-primary mb-2"></i>
+                                        <h6>Static Site</h6>
+                                        <small class="text-muted">Serve HTML, CSS, JS files</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card site-type-card" data-type="proxy">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-exchange-alt fa-2x text-info mb-2"></i>
+                                        <h6>Reverse Proxy</h6>
+                                        <small class="text-muted">Forward to backend application</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card site-type-card" data-type="load_balancer">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-balance-scale fa-2x text-warning mb-2"></i>
+                                        <h6>Load Balancer</h6>
+                                        <small class="text-muted">Distribute across multiple servers</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="siteType" name="type" required>
+                    </div>
+
+                    <!-- Configuration Sections -->
+                    
+                    <!-- Static Site Configuration -->
+                    <div id="staticConfig" class="config-section" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="fas fa-file-code me-2"></i>Static Site Configuration</h6>
+                                <p class="text-muted">Your files will be served from /var/www/[site-name]/</p>
+                                
+                                <div class="mb-3">
+                                    <label for="indexFiles" class="form-label">Index Files</label>
+                                    <input type="text" class="form-control" id="indexFiles" 
+                                           value="index.html, index.htm" 
+                                           placeholder="index.html, index.htm">
+                                    <div class="form-text">
+                                        Comma-separated list of index files to try
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Proxy Configuration -->
+                    <div id="proxyConfig" class="config-section" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="fas fa-exchange-alt me-2"></i>Reverse Proxy Configuration</h6>
+                                
+                                <div class="mb-3">
+                                    <label for="upstreamUrl" class="form-label">
+                                        <i class="fas fa-link me-1"></i>Upstream URL *
+                                    </label>
+                                    <input type="url" class="form-control" id="upstreamUrl" 
+                                           placeholder="http://localhost:3000">
+                                    <div class="form-text">
+                                        The backend server URL to proxy requests to
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Load Balancer Configuration -->
+                    <div id="loadBalancerConfig" class="config-section" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="fas fa-balance-scale me-2"></i>Load Balancer Configuration</h6>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-server me-1"></i>Upstream Servers *
+                                    </label>
+                                    <div id="upstreamServers">
+                                        <div class="input-group mb-2">
+                                            <input type="text" class="form-control upstream-server" 
+                                                   placeholder="192.168.1.10:8080">
+                                            <button type="button" class="btn btn-outline-danger" onclick="removeUpstreamServer(this)">
+                                                <i class="fas fa-minus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addUpstreamServer()">
+                                        <i class="fas fa-plus me-1"></i>Add Server
+                                    </button>
+                                    <div class="form-text">
+                                        List of backend servers to balance load across
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Configuration -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showAdvanced">
+                            <label class="form-check-label" for="showAdvanced">
+                                <i class="fas fa-cog me-1"></i>Show Advanced Configuration
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="advancedConfig" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6><i class="fas fa-cog me-2"></i>Advanced Configuration</h6>
+                                
+                                <div class="mb-3">
+                                    <label for="customConfig" class="form-label">Custom Nginx Configuration</label>
+                                    <textarea class="form-control" id="customConfig" rows="6" 
+                                              placeholder="# Add custom nginx directives here..."></textarea>
+                                    <div class="form-text">
+                                        Additional nginx configuration to include in the server block
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="/sites" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <div>
+                            <button type="submit" class="btn btn-primary" name="action" value="create">
+                                <i class="fas fa-save me-2"></i>Create Site
+                            </button>
+                            <button type="submit" class="btn btn-success" name="action" value="create_and_enable">
+                                <i class="fas fa-play me-2"></i>Create & Enable
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    setupSiteTypeSelection();
+    setupFormHandling();
+    setupAdvancedConfig();
+});
+
+function setupSiteTypeSelection() {
+    const typeCards = document.querySelectorAll('.site-type-card');
+    const siteTypeInput = document.getElementById('siteType');
+    
+    typeCards.forEach(card => {
+        card.addEventListener('click', function() {
+            // Remove active class from all cards
+            typeCards.forEach(c => c.classList.remove('border-primary', 'bg-primary', 'text-white'));
+            
+            // Add active class to clicked card
+            this.classList.add('border-primary', 'bg-primary', 'text-white');
+            
+            // Set the site type
+            const type = this.dataset.type;
+            siteTypeInput.value = type;
+            
+            // Show appropriate configuration section
+            showConfigSection(type);
+        });
+    });
+}
+
+function showConfigSection(type) {
+    // Hide all config sections
+    document.querySelectorAll('.config-section').forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Show the relevant config section
+    const configSection = document.getElementById(type + 'Config');
+    if (configSection) {
+        configSection.style.display = 'block';
+    }
+}
+
+function setupFormHandling() {
+    const form = document.getElementById('createSiteForm');
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitBtn = e.submitter;
+        const originalContent = submitBtn.innerHTML;
+        const action = submitBtn.name === 'action' ? submitBtn.value : 'create';
+        
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating...';
+        
+        try {
+            const formData = collectFormData();
+            
+            // Validate required fields based on site type
+            if (!validateFormData(formData)) {
+                return;
+            }
+            
+            // Create the site
+            const response = await fetchWithAuth('/api/sites/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            if (response.ok) {
+                const site = await response.json();
+                
+                // If create_and_enable, enable the site
+                if (action === 'create_and_enable') {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enabling...';
+                    
+                    const enableResponse = await fetchWithAuth(`/api/sites/${site.id}/enable`, {
+                        method: 'POST'
+                    });
+                    
+                    if (!enableResponse.ok) {
+                        const error = await enableResponse.json();
+                        showToast('Warning', 
+                            `Site created but failed to enable: ${error.detail}`, 
+                            'warning');
+                    }
+                }
+                
+                showToast('Success', 
+                    `Site "${site.name}" ${action === 'create_and_enable' ? 'created and enabled' : 'created'} successfully`, 
+                    'success');
+                
+                // Redirect to sites list after a brief delay
+                setTimeout(() => {
+                    window.location.href = '/sites';
+                }, 1500);
+                
+            } else {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to create site');
+            }
+            
+        } catch (error) {
+            showToast('Error', error.message, 'error');
+        } finally {
+            // Reset button state
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalContent;
+        }
+    });
+}
+
+function collectFormData() {
+    const siteType = document.getElementById('siteType').value;
+    
+    const formData = {
+        name: document.getElementById('siteName').value.trim(),
+        domain: document.getElementById('domain').value.trim(),
+        type: siteType,
+        config: {}
+    };
+    
+    // Collect configuration based on site type
+    switch (siteType) {
+        case 'static':
+            const indexFiles = document.getElementById('indexFiles').value;
+            if (indexFiles) {
+                formData.config.index_files = indexFiles.split(',').map(f => f.trim());
+            }
+            break;
+            
+        case 'proxy':
+            formData.config.upstream_url = document.getElementById('upstreamUrl').value.trim();
+            break;
+            
+        case 'load_balancer':
+            const servers = Array.from(document.querySelectorAll('.upstream-server'))
+                .map(input => input.value.trim())
+                .filter(value => value);
+            formData.config.upstream_servers = servers;
+            break;
+    }
+    
+    // Add custom configuration if provided
+    const customConfig = document.getElementById('customConfig').value.trim();
+    if (customConfig) {
+        formData.config.custom_config = customConfig;
+    }
+    
+    return formData;
+}
+
+function validateFormData(formData) {
+    // Basic validation
+    if (!formData.name) {
+        showToast('Error', 'Site name is required', 'error');
+        return false;
+    }
+    
+    if (!formData.domain) {
+        showToast('Error', 'Domain is required', 'error');
+        return false;
+    }
+    
+    if (!formData.type) {
+        showToast('Error', 'Please select a site type', 'error');
+        return false;
+    }
+    
+    // Type-specific validation
+    switch (formData.type) {
+        case 'proxy':
+            if (!formData.config.upstream_url) {
+                showToast('Error', 'Upstream URL is required for proxy sites', 'error');
+                return false;
+            }
+            break;
+            
+        case 'load_balancer':
+            if (!formData.config.upstream_servers || formData.config.upstream_servers.length === 0) {
+                showToast('Error', 'At least one upstream server is required for load balancer sites', 'error');
+                return false;
+            }
+            break;
+    }
+    
+    return true;
+}
+
+function setupAdvancedConfig() {
+    const checkbox = document.getElementById('showAdvanced');
+    const advancedConfig = document.getElementById('advancedConfig');
+    
+    checkbox.addEventListener('change', function() {
+        advancedConfig.style.display = this.checked ? 'block' : 'none';
+    });
+}
+
+function addUpstreamServer() {
+    const container = document.getElementById('upstreamServers');
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2';
+    div.innerHTML = `
+        <input type="text" class="form-control upstream-server" 
+               placeholder="192.168.1.10:8080">
+        <button type="button" class="btn btn-outline-danger" onclick="removeUpstreamServer(this)">
+            <i class="fas fa-minus"></i>
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+function removeUpstreamServer(button) {
+    const container = document.getElementById('upstreamServers');
+    const inputGroups = container.querySelectorAll('.input-group');
+    
+    // Don't remove if it's the last one
+    if (inputGroups.length > 1) {
+        button.parentElement.remove();
+    }
+}
+
+// Auto-generate site name from domain
+document.getElementById('domain').addEventListener('input', function() {
+    const domain = this.value.trim();
+    const siteNameInput = document.getElementById('siteName');
+    
+    // Only auto-generate if site name is empty
+    if (!siteNameInput.value && domain) {
+        // Convert domain to valid site name
+        const siteName = domain
+            .replace(/\./g, '-')
+            .replace(/[^a-zA-Z0-9_-]/g, '')
+            .toLowerCase();
+        siteNameInput.value = siteName;
+    }
+});
+</script>
+
+<style>
+.site-type-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.site-type-card:hover {
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.site-type-card.border-primary.bg-primary .fas {
+    color: white !important;
+}
+
+.config-section {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,27 @@
+server {
+    listen 80;
+    server_name 192.168.2.33/portfolio;
+    
+    root ./data/www/portfolio0;
+    index index.html index.htm;
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    
+    location / {
+        try_files $uri $uri/ =404;
+    }
+    
+    # Cache static assets
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+}

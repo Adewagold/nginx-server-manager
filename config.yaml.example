@@ -1,0 +1,120 @@
+# Nginx Site Manager Configuration
+# Copy this file to config.yaml and customize for your environment
+
+app:
+  # Application server settings
+  host: "127.0.0.1"
+  port: 8080
+  debug: false
+  
+  # Secret key for JWT tokens - CHANGE THIS IN PRODUCTION
+  secret_key: "your-very-secure-secret-key-change-this-in-production"
+  
+  # JWT token expiration time (in minutes)
+  access_token_expire_minutes: 1440  # 24 hours
+
+# Administrator credentials
+admin:
+  # Default admin username
+  username: "admin"
+  
+  # Default admin password - CHANGE THIS IMMEDIATELY
+  password: "admin123"
+
+# System paths configuration
+paths:
+  # Nginx configuration directories
+  nginx_config_dir: "/etc/nginx/sites-available"
+  nginx_enabled_dir: "/etc/nginx/sites-enabled"
+  
+  # Web root directory for static sites
+  web_root: "/var/www"
+  
+  # SSL certificate directory (Let's Encrypt default)
+  ssl_cert_dir: "/etc/letsencrypt/live"
+  
+  # Application data directory
+  data_dir: "./data"
+  
+  # Log files directory
+  log_dir: "/var/log/nginx"
+
+# Nginx service configuration
+nginx:
+  # Command to test nginx configuration
+  test_command: "sudo nginx -t"
+  
+  # Command to reload nginx
+  reload_command: "sudo systemctl reload nginx"
+  
+  # Command to restart nginx
+  restart_command: "sudo systemctl restart nginx"
+  
+  # Command to check nginx status
+  status_command: "sudo systemctl status nginx"
+
+# File upload settings
+upload:
+  # Maximum file size for uploads (in bytes)
+  max_file_size: 104857600  # 100MB
+  
+  # Allowed file extensions for uploads
+  allowed_extensions:
+    - ".html"
+    - ".htm"
+    - ".css"
+    - ".js"
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".gif"
+    - ".svg"
+    - ".ico"
+    - ".pdf"
+    - ".txt"
+    - ".xml"
+    - ".json"
+
+# SSL/TLS configuration
+ssl:
+  # Email for Let's Encrypt registration
+  email: "admin@yourdomain.com"
+  
+  # Use staging environment for testing
+  staging: false
+  
+  # Automatic certificate renewal
+  auto_renew: true
+
+# Security settings
+security:
+  # Rate limiting (requests per minute)
+  rate_limit: 60
+  
+  # CORS settings
+  cors_origins:
+    - "http://localhost:8080"
+    - "http://127.0.0.1:8080"
+  
+  # Session timeout (in minutes)
+  session_timeout: 60
+
+# Logging configuration
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Log to file
+  file: "/var/log/nginx-manager/app.log"
+
+# Database configuration
+database:
+  # SQLite database file path
+  url: "sqlite:///./data/sites.db"
+  
+  # Connection pool settings
+  pool_size: 10
+  max_overflow: 20

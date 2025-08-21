@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{% block title %}Site Details - Nginx Site Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-edit me-2"></i>Site Details</h1>
+            <a href="/sites" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Sites
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="siteDetailContainer">
+    <div class="d-flex justify-content-center p-4">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading site details...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const siteId = {{ site_id }};
+let siteData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadSiteDetails();
+});
+
+async function loadSiteDetails() {
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}`);
+        if (response.ok) {
+            siteData = await response.json();
+            renderSiteDetails();
+        } else if (response.status === 404) {
+            renderNotFound();
+        } else {
+            throw new Error('Failed to load site details');
+        }
+    } catch (error) {
+        console.error('Error loading site details:', error);
+        renderError(error.message);
+    }
+}
+
+function renderSiteDetails() {
+    const container = document.getElementById('siteDetailContainer');
+    
+    const statusBadge = siteData.enabled ? 
+        '<span class="badge bg-success">Enabled</span>' : 
+        '<span class="badge bg-warning">Disabled</span>';
+    
+    const sslBadge = siteData.ssl_enabled ? 
+        '<span class="badge bg-success">SSL Active</span>' : 
+        '<span class="badge bg-secondary">SSL Inactive</span>';
+    
+    const typeIcon = getTypeIcon(siteData.type);
+    
+    container.innerHTML = `
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            ${typeIcon} ${siteData.name}
+                        </h5>
+                        <div>
+                            ${statusBadge}
+                            ${sslBadge}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Domain:</strong><br>
+                                <a href="http://${siteData.domain}" target="_blank" class="text-decoration-none">
+                                    ${siteData.domain} <i class="fas fa-external-link-alt fa-sm"></i>
+                                </a>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Type:</strong><br>
+                                <span class="badge bg-info text-capitalize">${siteData.type.replace('_', ' ')}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Created:</strong><br>
+                                ${new Date(siteData.created_at).toLocaleString()}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Last Updated:</strong><br>
+                                ${new Date(siteData.updated_at).toLocaleString()}
+                            </div>
+                        </div>
+                        
+                        ${renderConfigurationDetails()}
+                        
+                        <hr>
+                        
+                        <div class="d-flex gap-2 flex-wrap">
+                            ${siteData.enabled ? 
+                                '<button class="btn btn-warning" onclick="toggleSite(false)"><i class="fas fa-pause me-1"></i>Disable Site</button>' :
+                                '<button class="btn btn-success" onclick="toggleSite(true)"><i class="fas fa-play me-1"></i>Enable Site</button>'
+                            }
+                            <button class="btn btn-outline-primary" onclick="viewConfiguration()">
+                                <i class="fas fa-code me-1"></i>View Config
+                            </button>
+                            <button class="btn btn-outline-info" onclick="checkStatus()">
+                                <i class="fas fa-heartbeat me-1"></i>Check Status
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="deleteSite()">
+                                <i class="fas fa-trash me-1"></i>Delete Site
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-info-circle me-1"></i>Site Status</h6>
+                    </div>
+                    <div class="card-body" id="statusInfo">
+                        <div class="d-flex justify-content-center p-2">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-tools me-1"></i>Quick Actions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="editSite()">
+                                <i class="fas fa-edit me-1"></i>Edit Configuration
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="viewLogs()">
+                                <i class="fas fa-file-alt me-1"></i>View Logs
+                            </button>
+                            ${siteData.type === 'static' ? 
+                                '<button class="btn btn-outline-info btn-sm" onclick="manageFiles()"><i class="fas fa-folder me-1"></i>Manage Files</button>' : ''
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Load status information
+    loadSiteStatus();
+}
+
+function renderConfigurationDetails() {
+    const config = siteData.config || {};
+    
+    switch (siteData.type) {
+        case 'static':
+            return `
+                <div class="mb-3">
+                    <strong>Configuration:</strong><br>
+                    <small class="text-muted">
+                        Index files: ${(config.index_files || ['index.html', 'index.htm']).join(', ')}<br>
+                        Web root: /var/www/${siteData.name}/
+                    </small>
+                </div>
+            `;
+            
+        case 'proxy':
+            return `
+                <div class="mb-3">
+                    <strong>Proxy Configuration:</strong><br>
+                    <small class="text-muted">
+                        Upstream URL: ${config.upstream_url || 'Not configured'}<br>
+                        Proxy headers: Host, X-Real-IP, X-Forwarded-For, X-Forwarded-Proto
+                    </small>
+                </div>
+            `;
+            
+        case 'load_balancer':
+            const servers = config.upstream_servers || [];
+            return `
+                <div class="mb-3">
+                    <strong>Load Balancer Configuration:</strong><br>
+                    <small class="text-muted">
+                        Upstream servers: ${servers.length > 0 ? servers.join(', ') : 'None configured'}<br>
+                        Method: Round Robin
+                    </small>
+                </div>
+            `;
+            
+        default:
+            return '';
+    }
+}
+
+async function loadSiteStatus() {
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}/status`);
+        if (response.ok) {
+            const status = await response.json();
+            renderStatusInfo(status);
+        }
+    } catch (error) {
+        console.error('Error loading site status:', error);
+        document.getElementById('statusInfo').innerHTML = '<small class="text-muted">Status unavailable</small>';
+    }
+}
+
+function renderStatusInfo(status) {
+    const statusInfo = document.getElementById('statusInfo');
+    
+    const getStatusIcon = (isOk) => isOk ? 
+        '<i class="fas fa-check-circle text-success"></i>' : 
+        '<i class="fas fa-times-circle text-danger"></i>';
+    
+    statusInfo.innerHTML = `
+        <div class="row g-2">
+            <div class="col-12">
+                <small class="text-muted">Nginx Config</small><br>
+                ${getStatusIcon(status.nginx_config_exists && status.nginx_config_valid)}
+                ${status.nginx_config_exists ? 
+                    (status.nginx_config_valid ? 'Valid' : 'Invalid') : 
+                    'Missing'
+                }
+            </div>
+            ${siteData.type === 'static' ? `
+                <div class="col-12">
+                    <small class="text-muted">Web Directory</small><br>
+                    ${getStatusIcon(status.web_directory_exists)}
+                    ${status.web_directory_exists ? 'Exists' : 'Missing'}
+                </div>
+            ` : ''}
+            <div class="col-12">
+                <small class="text-muted">Site Status</small><br>
+                ${status.enabled ? 
+                    '<span class="badge bg-success">Enabled</span>' : 
+                    '<span class="badge bg-warning">Disabled</span>'
+                }
+            </div>
+        </div>
+    `;
+}
+
+function getTypeIcon(type) {
+    switch (type) {
+        case 'static':
+            return '<i class="fas fa-file-code text-primary"></i>';
+        case 'proxy':
+            return '<i class="fas fa-exchange-alt text-info"></i>';
+        case 'load_balancer':
+            return '<i class="fas fa-balance-scale text-warning"></i>';
+        default:
+            return '<i class="fas fa-globe"></i>';
+    }
+}
+
+async function toggleSite(enable) {
+    const action = enable ? 'enable' : 'disable';
+    const confirmMessage = `Are you sure you want to ${action} this site?`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}/${action}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showToast('Success', result.message, 'success');
+            await loadSiteDetails(); // Reload to update status
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || `Failed to ${action} site`);
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    }
+}
+
+async function viewConfiguration() {
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}/config`);
+        if (response.ok) {
+            const data = await response.json();
+            showConfigModal(data.config);
+        } else {
+            throw new Error('Failed to load configuration');
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    }
+}
+
+function showConfigModal(config) {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nginx Configuration</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre><code>${config}</code></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard(\`${config.replace(/`/g, '\\`')}\`)">
+                        <i class="fas fa-copy me-1"></i>Copy
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    
+    modal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(modal);
+    });
+    
+    bsModal.show();
+}
+
+async function checkStatus() {
+    await loadSiteStatus();
+    showToast('Info', 'Site status updated', 'info');
+}
+
+async function deleteSite() {
+    const confirmMessage = `Are you sure you want to delete "${siteData.name}"?\n\nThis action cannot be undone and will:\n- Remove the nginx configuration\n- Disable the site if enabled\n- Delete the site from the database`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showToast('Success', `Site "${siteData.name}" deleted successfully`, 'success');
+            setTimeout(() => {
+                window.location.href = '/sites';
+            }, 1500);
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete site');
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    }
+}
+
+function editSite() {
+    showToast('Info', 'Edit functionality coming soon', 'info');
+}
+
+function viewLogs() {
+    showToast('Info', 'Log viewing functionality coming soon', 'info');
+}
+
+function manageFiles() {
+    showToast('Info', 'File management functionality coming soon', 'info');
+}
+
+function renderNotFound() {
+    const container = document.getElementById('siteDetailContainer');
+    container.innerHTML = `
+        <div class="text-center p-5">
+            <i class="fas fa-exclamation-triangle fa-4x text-warning mb-3"></i>
+            <h4>Site Not Found</h4>
+            <p class="text-muted mb-4">The site you're looking for doesn't exist or has been deleted.</p>
+            <a href="/sites" class="btn btn-primary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Sites
+            </a>
+        </div>
+    `;
+}
+
+function renderError(message) {
+    const container = document.getElementById('siteDetailContainer');
+    container.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Error loading site details: ${message}
+        </div>
+    `;
+}
+</script>
+{% endblock %}

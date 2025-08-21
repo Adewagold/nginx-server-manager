@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Nginx Site Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h1>
+            <div>
+                <button class="btn btn-outline-primary" onclick="refreshStats()">
+                    <i class="fas fa-refresh me-1"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title mb-0" id="totalSites">-</h4>
+                        <p class="card-text">Total Sites</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-globe fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title mb-0" id="enabledSites">-</h4>
+                        <p class="card-text">Enabled Sites</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title mb-0" id="disabledSites">-</h4>
+                        <p class="card-text">Disabled Sites</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-pause-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white" id="nginxStatusCard">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title mb-0" id="nginxStatus">-</h4>
+                        <p class="card-text">Nginx Status</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-server fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Recent Sites</h5>
+                <a href="/sites" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                <div id="recentSitesList">
+                    <div class="d-flex justify-content-center p-4">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/sites/new" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Create New Site
+                    </a>
+                    <button class="btn btn-outline-secondary" onclick="reloadNginx()">
+                        <i class="fas fa-redo me-2"></i>Reload Nginx
+                    </button>
+                    <button class="btn btn-outline-info" onclick="checkNginxStatus()">
+                        <i class="fas fa-heartbeat me-2"></i>Check System Status
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>System Information</h5>
+            </div>
+            <div class="card-body">
+                <div id="systemInfo">
+                    <div class="d-flex justify-content-center p-2">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let dashboardData = {
+    sites: [],
+    systemStatus: null
+};
+
+// Load dashboard data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+});
+
+async function loadDashboardData() {
+    try {
+        await Promise.all([
+            loadSites(),
+            loadSystemStatus()
+        ]);
+        updateDashboard();
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showToast('Error', 'Failed to load dashboard data', 'error');
+    }
+}
+
+async function loadSites() {
+    const response = await fetchWithAuth('/api/sites/');
+    if (response.ok) {
+        const data = await response.json();
+        dashboardData.sites = data.sites;
+    }
+}
+
+async function loadSystemStatus() {
+    const response = await fetchWithAuth('/api/system/status');
+    if (response.ok) {
+        dashboardData.systemStatus = await response.json();
+    }
+}
+
+function updateDashboard() {
+    const sites = dashboardData.sites;
+    const enabledSites = sites.filter(site => site.enabled);
+    const disabledSites = sites.filter(site => !site.enabled);
+    
+    // Update statistics cards
+    document.getElementById('totalSites').textContent = sites.length;
+    document.getElementById('enabledSites').textContent = enabledSites.length;
+    document.getElementById('disabledSites').textContent = disabledSites.length;
+    
+    // Update nginx status
+    const nginxCard = document.getElementById('nginxStatusCard');
+    const nginxStatus = document.getElementById('nginxStatus');
+    
+    if (dashboardData.systemStatus && dashboardData.systemStatus.nginx) {
+        const isRunning = dashboardData.systemStatus.nginx.running;
+        nginxStatus.textContent = isRunning ? 'Running' : 'Stopped';
+        nginxCard.className = 'card text-white ' + (isRunning ? 'bg-success' : 'bg-danger');
+    }
+    
+    // Update recent sites list
+    updateRecentSitesList();
+    
+    // Update system information
+    updateSystemInfo();
+}
+
+function updateRecentSitesList() {
+    const container = document.getElementById('recentSitesList');
+    const sites = dashboardData.sites.slice(0, 5); // Show only 5 recent sites
+    
+    if (sites.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted p-4">
+                <i class="fas fa-globe fa-3x mb-3 opacity-50"></i>
+                <p>No sites created yet</p>
+                <a href="/sites/new" class="btn btn-primary btn-sm">Create Your First Site</a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="list-group list-group-flush">';
+    sites.forEach(site => {
+        const statusIcon = site.enabled ? 
+            '<i class="fas fa-check-circle text-success"></i>' : 
+            '<i class="fas fa-pause-circle text-warning"></i>';
+        
+        const typeIcon = getTypeIcon(site.type);
+        
+        html += `
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">
+                        ${typeIcon} ${site.name}
+                        ${statusIcon}
+                    </h6>
+                    <small class="text-muted">${site.domain}</small>
+                </div>
+                <div>
+                    <a href="/sites/${site.id}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function updateSystemInfo() {
+    const container = document.getElementById('systemInfo');
+    
+    if (!dashboardData.systemStatus) {
+        container.innerHTML = '<p class="text-muted">System status unavailable</p>';
+        return;
+    }
+    
+    const status = dashboardData.systemStatus;
+    const lastUpdate = new Date(status.timestamp).toLocaleString();
+    
+    container.innerHTML = `
+        <div class="row g-2">
+            <div class="col-6">
+                <small class="text-muted">App Version</small>
+                <div>${status.application.version}</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Database</small>
+                <div class="text-capitalize">${status.application.database}</div>
+            </div>
+        </div>
+        <hr>
+        <small class="text-muted">Last updated: ${lastUpdate}</small>
+    `;
+}
+
+function getTypeIcon(type) {
+    switch (type) {
+        case 'static':
+            return '<i class="fas fa-file-code text-primary"></i>';
+        case 'proxy':
+            return '<i class="fas fa-exchange-alt text-info"></i>';
+        case 'load_balancer':
+            return '<i class="fas fa-balance-scale text-warning"></i>';
+        default:
+            return '<i class="fas fa-globe"></i>';
+    }
+}
+
+async function refreshStats() {
+    const btn = event.target;
+    const originalContent = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+    btn.disabled = true;
+    
+    try {
+        await loadDashboardData();
+        showToast('Success', 'Dashboard refreshed successfully', 'success');
+    } catch (error) {
+        showToast('Error', 'Failed to refresh dashboard', 'error');
+    } finally {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+    }
+}
+
+async function reloadNginx() {
+    if (!confirm('Are you sure you want to reload Nginx? This may briefly interrupt service.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetchWithAuth('/api/system/reload', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            showToast('Success', 'Nginx reloaded successfully', 'success');
+            await loadSystemStatus();
+            updateDashboard();
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to reload Nginx');
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    }
+}
+
+async function checkNginxStatus() {
+    try {
+        await loadSystemStatus();
+        updateDashboard();
+        showToast('Info', 'System status updated', 'info');
+    } catch (error) {
+        showToast('Error', 'Failed to check system status', 'error');
+    }
+}
+</script>
+{% endblock %}
