@@ -331,22 +331,80 @@ server {
         except Exception as e:
             return False, f"Error testing nginx configuration: {str(e)}"
     
-    def reload_nginx(self) -> Tuple[bool, str]:
-        """Reload nginx service."""
+    def test_config(self) -> Tuple[bool, str]:
+        """Test nginx configuration syntax."""
         try:
             result = subprocess.run(
-                self.config.nginx.reload_command.split(),
+                self.config.nginx.test_command.split(),
                 capture_output=True,
                 text=True
             )
             
             if result.returncode == 0:
-                return True, "Nginx reloaded successfully"
+                return True, "Nginx configuration syntax is valid"
             else:
                 return False, result.stderr
         
         except Exception as e:
+            return False, f"Error testing nginx configuration: {str(e)}"
+    
+    def reload_nginx(self) -> Tuple[bool, str]:
+        """Reload nginx service with config validation."""
+        try:
+            # First, test the nginx configuration
+            test_result = subprocess.run(
+                self.config.nginx.test_command.split(),
+                capture_output=True,
+                text=True
+            )
+            
+            if test_result.returncode != 0:
+                return False, f"Nginx config test failed: {test_result.stderr}"
+            
+            # If config test passes, reload nginx
+            reload_result = subprocess.run(
+                self.config.nginx.reload_command.split(),
+                capture_output=True,
+                text=True
+            )
+            
+            if reload_result.returncode == 0:
+                return True, "Nginx configuration tested and reloaded successfully"
+            else:
+                error_msg = reload_result.stderr.strip() or reload_result.stdout.strip()
+                return False, f"Nginx reload failed: {error_msg}"
+        
+        except Exception as e:
             return False, f"Error reloading nginx: {str(e)}"
+    
+    def restart_nginx(self) -> Tuple[bool, str]:
+        """Restart nginx service."""
+        try:
+            # First, test the nginx configuration
+            test_result = subprocess.run(
+                self.config.nginx.test_command.split(),
+                capture_output=True,
+                text=True
+            )
+            
+            if test_result.returncode != 0:
+                return False, f"Nginx config test failed: {test_result.stderr}"
+            
+            # If config test passes, restart nginx
+            restart_result = subprocess.run(
+                self.config.nginx.restart_command.split(),
+                capture_output=True,
+                text=True
+            )
+            
+            if restart_result.returncode == 0:
+                return True, "Nginx configuration tested and restarted successfully"
+            else:
+                error_msg = restart_result.stderr.strip() or restart_result.stdout.strip()
+                return False, f"Nginx restart failed: {error_msg}"
+        
+        except Exception as e:
+            return False, f"Error restarting nginx: {str(e)}"
     
     def get_nginx_status(self) -> Dict[str, Any]:
         """Get nginx service status."""

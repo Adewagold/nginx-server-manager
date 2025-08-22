@@ -255,6 +255,7 @@ async def update_site(
         # Regenerate nginx configuration if the site is enabled
         updated_site = site_model.get_by_id(site_id)
         if updated_site['enabled']:
+            # Generate new nginx configuration
             config_content = nginx_service.generate_config(updated_site)
             success, message = nginx_service.save_config(site_id, config_content)
             if not success:
@@ -263,12 +264,16 @@ async def update_site(
                     detail=f"Failed to update nginx configuration: {message}"
                 )
             
-            # Reload nginx to apply changes
+            # Test and reload nginx to apply changes
             success, message = nginx_service.reload_nginx()
             if not success:
+                # Log the error but don't fail the update completely
+                # The configuration was saved, user can manually reload
+                print(f"Warning: Nginx reload failed after site update: {message}")
+                # Still raise exception to inform user
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to reload nginx: {message}"
+                    detail=f"Site updated but nginx reload failed: {message}. Please reload nginx manually."
                 )
         
         return SiteResponse(**updated_site)

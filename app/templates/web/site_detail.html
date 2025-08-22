@@ -149,6 +149,9 @@ function renderSiteDetails() {
                             <button class="btn btn-outline-secondary btn-sm" onclick="viewLogs()">
                                 <i class="fas fa-file-alt me-1"></i>View Logs
                             </button>
+                            <button class="btn btn-outline-warning btn-sm" onclick="reloadNginx()">
+                                <i class="fas fa-sync me-1"></i>Reload Nginx
+                            </button>
                             ${siteData.type === 'static' ? 
                                 '<button class="btn btn-outline-info btn-sm" onclick="manageFiles()"><i class="fas fa-folder me-1"></i>Manage Files</button>' : ''
                             }
@@ -377,6 +380,28 @@ function viewLogs() {
 
 function manageFiles() {
     showToast('Info', 'File management functionality coming soon', 'info');
+}
+
+async function reloadNginx() {
+    if (!confirm('Are you sure you want to reload nginx? This will apply all pending configuration changes.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetchWithAuth('/api/system/nginx/reload', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showToast('Success', result.message || 'Nginx reloaded successfully', 'success');
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to reload nginx');
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    }
 }
 
 function renderNotFound() {
