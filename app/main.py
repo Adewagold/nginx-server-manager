@@ -22,6 +22,8 @@ from app.models import init_database
 from app.auth import get_auth_manager, get_session_manager, check_rate_limit
 from app.api.sites import router as sites_router
 from app.api.system import router as system_router
+from app.api.ssl import router as ssl_router
+from app.api.files import router as files_router
 
 
 # Initialize configuration and database
@@ -100,6 +102,8 @@ if os.path.exists("static"):
 # Include API routers
 app.include_router(sites_router)
 app.include_router(system_router)
+app.include_router(ssl_router)
+app.include_router(files_router)
 
 # Authentication manager
 auth_manager = get_auth_manager()
@@ -222,6 +226,21 @@ async def site_detail_page(request: Request, site_id: int):
 async def edit_site_page(request: Request, site_id: int):
     """Edit site configuration page."""
     return templates.TemplateResponse("edit_site.html", {
+        "request": request,
+        "site_id": site_id
+    })
+
+
+@app.get("/ssl", response_class=HTMLResponse)
+async def ssl_dashboard_page(request: Request):
+    """SSL certificate management dashboard."""
+    return templates.TemplateResponse("ssl_dashboard.html", {"request": request})
+
+
+@app.get("/sites/{site_id}/files", response_class=HTMLResponse)
+async def file_manager_page(request: Request, site_id: int):
+    """File manager page for static sites."""
+    return templates.TemplateResponse("file_manager.html", {
         "request": request,
         "site_id": site_id
     })

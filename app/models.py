@@ -50,6 +50,10 @@ class DatabaseManager:
                 config_path TEXT,
                 enabled BOOLEAN DEFAULT 0,
                 ssl_enabled BOOLEAN DEFAULT 0,
+                ssl_certificate_path TEXT,
+                ssl_certificate_key_path TEXT,
+                ssl_expiry_date TIMESTAMP,
+                ssl_status TEXT DEFAULT 'disabled' CHECK (ssl_status IN ('disabled', 'pending', 'active', 'expired', 'error')),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -64,10 +68,24 @@ class DatabaseManager:
             )
         """)
         
+        # Add SSL columns to existing sites table if they don't exist
+        cursor.execute("PRAGMA table_info(sites)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        if 'ssl_certificate_path' not in columns:
+            cursor.execute("ALTER TABLE sites ADD COLUMN ssl_certificate_path TEXT")
+        if 'ssl_certificate_key_path' not in columns:
+            cursor.execute("ALTER TABLE sites ADD COLUMN ssl_certificate_key_path TEXT")
+        if 'ssl_expiry_date' not in columns:
+            cursor.execute("ALTER TABLE sites ADD COLUMN ssl_expiry_date TIMESTAMP")
+        if 'ssl_status' not in columns:
+            cursor.execute("ALTER TABLE sites ADD COLUMN ssl_status TEXT DEFAULT 'disabled'")
+        
         # Create indexes for better performance
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sites_name ON sites (name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sites_domain ON sites (domain)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sites_enabled ON sites (enabled)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sites_ssl_status ON sites (ssl_status)")
         
         conn.commit()
     
@@ -239,6 +257,68 @@ class Site:
     def set_ssl_enabled(self, site_id: int, ssl_enabled: bool) -> bool:
         """Set SSL status for a site."""
         return self.update(site_id, ssl_enabled=ssl_enabled)
+    
+    def update_ssl_certificate(self, site_id: int, cert_path: str, key_path: str, 
+                             expiry_date: datetime, status: str = 'active') -> bool:
+        """Update SSL certificate information for a site."""
+        return self.update(site_id, 
+                         ssl_certificate_path=cert_path,
+                         ssl_certificate_key_path=key_path,
+                         ssl_expiry_date=expiry_date,
+                         ssl_status=status)
+    
+    def set_ssl_status(self, site_id: int, status: str) -> bool:
+        """Update SSL status for a site."""
+        valid_statuses = ['disabled', 'pending', 'active', 'expired', 'error']
+        if status not in valid_statuses:
+            raise ValueError(f"Invalid SSL status: {status}. Must be one of {valid_statuses}")
+        return self.update(site_id, ssl_status=status)
+    
+    def get_ssl_sites(self) -> List[Dict[str, Any]]:
+        """Get all sites with SSL enabled."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.*, sc.config_data
+                FROM sites s
+                LEFT JOIN site_configs sc ON s.id = sc.site_id
+                WHERE s.ssl_enabled = 1
+                ORDER BY s.ssl_expiry_date ASC
+            """)
+            
+            sites = []
+            for row in cursor.fetchall():
+                site_data = dict(row)
+                if site_data['config_data']:
+                    site_data['config'] = json.loads(site_data['config_data'])
+                    del site_data['config_data']
+                sites.append(site_data)
+            
+            return sites
+    
+    def get_expiring_certificates(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Get sites with certificates expiring within specified days."""
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.*, sc.config_data
+                FROM sites s
+                LEFT JOIN site_configs sc ON s.id = sc.site_id
+                WHERE s.ssl_enabled = 1 
+                AND s.ssl_expiry_date IS NOT NULL
+                AND datetime(s.ssl_expiry_date) <= datetime('now', '+{} days')
+                ORDER BY s.ssl_expiry_date ASC
+            """.format(days))
+            
+            sites = []
+            for row in cursor.fetchall():
+                site_data = dict(row)
+                if site_data['config_data']:
+                    site_data['config'] = json.loads(site_data['config_data'])
+                    del site_data['config_data']
+                sites.append(site_data)
+            
+            return sites
     
     def set_config_path(self, site_id: int, config_path: str) -> bool:
         """Set the nginx config file path for a site."""

@@ -149,6 +149,9 @@ server {
             "site_name": site_data["name"],
             "domain": site_data["domain"],
             "web_root": self.config.paths.web_root,
+            "ssl_enabled": bool(site_data.get("ssl_enabled", False)),
+            "ssl_certificate_path": site_data.get("ssl_certificate_path", ""),
+            "ssl_certificate_key_path": site_data.get("ssl_certificate_key_path", ""),
             **site_data.get("config", {})
         }
         
@@ -215,6 +218,23 @@ server {
         
         except Exception as e:
             return False, f"Error saving configuration: {str(e)}"
+    
+    def generate_site_config(self, site_id: int) -> Tuple[bool, str]:
+        """Generate and save nginx configuration for a site."""
+        try:
+            # Get site data
+            site_data = self.site_model.get_by_id(site_id)
+            if not site_data:
+                return False, "Site not found"
+            
+            # Generate configuration from template
+            config_content = self.generate_config(site_data)
+            
+            # Save configuration
+            return self.save_config(site_id, config_content)
+        
+        except Exception as e:
+            return False, f"Error generating site configuration: {str(e)}"
     
     def enable_site(self, site_id: int) -> Tuple[bool, str]:
         """Enable a site by creating symlink in sites-enabled."""

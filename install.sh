@@ -141,8 +141,12 @@ $CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl reload nginx
 $CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart nginx
 $CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl status nginx
 $CURRENT_USER ALL=(ALL) NOPASSWD: /usr/bin/certbot
+$CURRENT_USER ALL=(ALL) NOPASSWD: /usr/bin/certbot certonly *
+$CURRENT_USER ALL=(ALL) NOPASSWD: /usr/bin/certbot renew *
 $CURRENT_USER ALL=(ALL) NOPASSWD: /bin/ln -sf /etc/nginx/sites-available/* /etc/nginx/sites-enabled/
 $CURRENT_USER ALL=(ALL) NOPASSWD: /bin/rm /etc/nginx/sites-enabled/*
+$CURRENT_USER ALL=(ALL) NOPASSWD: /bin/chown * ~/.letsencrypt/*
+$CURRENT_USER ALL=(ALL) NOPASSWD: /bin/chmod * ~/.letsencrypt/*
 EOF
 
 # Install Python dependencies in current directory
@@ -158,6 +162,46 @@ print_status "Installing required packages..."
 sudo mkdir -p /var/log/nginx-manager
 sudo chown -R $CURRENT_USER:www-data /var/log/nginx-manager
 sudo chmod -R 775 /var/log/nginx-manager
+
+# Set up SSL/Let's Encrypt directories for user-accessible certificates
+print_status "Setting up SSL certificate directories..."
+# Create user-accessible Let's Encrypt directories to avoid permission issues
+mkdir -p ~/.letsencrypt
+mkdir -p ~/.letsencrypt/live
+mkdir -p ~/.letsencrypt/work
+mkdir -p ~/.letsencrypt/logs
+mkdir -p ~/.letsencrypt/renewal
+
+# Set appropriate permissions for SSL directories
+chmod 755 ~/.letsencrypt
+chmod 755 ~/.letsencrypt/live
+chmod 755 ~/.letsencrypt/work
+chmod 755 ~/.letsencrypt/logs
+chmod 755 ~/.letsencrypt/renewal
+
+# Make SSL directories readable by nginx (www-data group)
+# This allows nginx to read SSL certificates from user directory
+sudo chown -R $CURRENT_USER:www-data ~/.letsencrypt
+sudo find ~/.letsencrypt -type d -exec chmod 755 {} \;
+sudo find ~/.letsencrypt -type f -exec chmod 644 {} \;
+
+print_status "SSL directories configured for user-accessible certificates"
+
+# Test SSL directory permissions
+print_status "Testing SSL directory permissions..."
+if [[ -w ~/.letsencrypt && -w ~/.letsencrypt/logs ]]; then
+    print_status "✓ SSL directories are writable"
+    # Create a test file to verify nginx can read from these directories
+    echo "test" > ~/.letsencrypt/test_file
+    if sudo -u www-data test -r ~/.letsencrypt/test_file; then
+        print_status "✓ Nginx can read SSL certificates from user directory"
+        rm ~/.letsencrypt/test_file
+    else
+        print_warning "⚠ Nginx may not be able to read SSL certificates. Check permissions."
+    fi
+else
+    print_error "✗ SSL directories are not writable. SSL certificate generation may fail."
+fi
 
 # Create systemd service
 print_status "Creating systemd service..."
@@ -217,6 +261,8 @@ echo "- You MUST log out and log back in for group permissions to take effect"
 echo "- Or run: newgrp www-data (for current session only)"
 echo "- Change the default admin password in config.yaml"
 echo "- Configure your firewall to allow access to port 8080 if needed"
+echo "- SSL certificates will be stored in ~/.letsencrypt/ (user-accessible location)"
+echo "- For production SSL certificates, remove the --staging flag from SSL service"
 echo ""
 print_status "To check service status: sudo systemctl status nginx-manager"
 print_status "To view logs: sudo journalctl -u nginx-manager -f"

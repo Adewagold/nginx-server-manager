@@ -1,0 +1,818 @@
+{% extends "base.html" %}
+
+{% block title %}File Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1><i class="fas fa-folder"></i> File Manager</h1>
+                    <p class="text-muted mb-0">Manage files for <span id="siteName">Loading...</span></p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-secondary me-2" onclick="window.history.back()">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <!-- Breadcrumb Navigation -->
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb mb-0" id="breadcrumb">
+                                    <li class="breadcrumb-item"><a href="#" onclick="navigateToPath('/')">Root</a></li>
+                                </ol>
+                            </nav>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <!-- Action Buttons -->
+                            <div class="btn-group me-2" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="showCreateModal('directory')">
+                                    <i class="fas fa-folder-plus"></i> New Folder
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="showCreateModal('file')">
+                                    <i class="fas fa-file-plus"></i> New File
+                                </button>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="showUploadModal()">
+                                <i class="fas fa-upload"></i> Upload Files
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Browser -->
+            <div class="card">
+                <div class="card-body">
+                    <!-- Loading State -->
+                    <div id="loadingState" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="mt-2">Loading files...</div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyState" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-folder-open text-muted" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3 text-muted">No files found</h5>
+                        <p class="text-muted">Upload some files or create a new folder to get started.</p>
+                    </div>
+
+                    <!-- File List -->
+                    <div id="fileList" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th>Name</th>
+                                        <th style="width: 100px;">Size</th>
+                                        <th style="width: 150px;">Modified</th>
+                                        <th style="width: 120px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fileTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Upload Area -->
+                <div id="uploadArea" class="border border-2 border-dashed rounded p-4 text-center mb-3" 
+                     style="min-height: 200px; cursor: pointer;">
+                    <i class="fas fa-cloud-upload-alt text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Drag & Drop Files Here</h5>
+                    <p class="text-muted">or click to browse files</p>
+                    <input type="file" id="fileInput" multiple style="display: none;">
+                </div>
+                
+                <!-- Options -->
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="extractZip">
+                        <label class="form-check-label" for="extractZip">
+                            Extract ZIP files automatically
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="uploadProgress" style="display: none;">
+                    <div class="progress mb-2">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="text-center">
+                        <small class="text-muted">Uploading files...</small>
+                    </div>
+                </div>
+
+                <!-- Upload Results -->
+                <div id="uploadResults" style="display: none;">
+                    <h6>Upload Results:</h6>
+                    <ul id="uploadResultsList" class="list-unstyled">
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="uploadBtn" onclick="uploadFiles()">Upload</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create File/Folder Modal -->
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createModalTitle">Create New</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createForm">
+                    <div class="mb-3">
+                        <label for="createName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="createName" required>
+                    </div>
+                    <div id="fileContentGroup" style="display: none;">
+                        <label for="createContent" class="form-label">Initial Content (optional)</label>
+                        <textarea class="form-control" id="createContent" rows="5"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createItem()">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit File Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit File: <span id="editFileName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editContent">
+                    <textarea class="form-control" id="fileEditor" rows="20" style="font-family: 'Courier New', monospace;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveFile()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal fade" id="renameModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Rename</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="renameForm">
+                    <div class="mb-3">
+                        <label for="renameName" class="form-label">New Name</label>
+                        <input type="text" class="form-control" id="renameName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="renameItem()">Rename</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteItemName"></strong>?</p>
+                <p class="text-danger small">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="deleteItem()">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Global variables
+let siteId = {{ site_id }};
+let currentPath = '/';
+let selectedFiles = [];
+let currentEditFile = '';
+let currentRenameFile = '';
+let currentDeleteFile = '';
+let createType = 'file';
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the main app if not already done
+    if (typeof App !== 'undefined' && App.init) {
+        App.init();
+    }
+    
+    loadSiteInfo();
+    loadFiles('/');
+    setupUploadArea();
+});
+
+// Load site information
+async function loadSiteInfo() {
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}`);
+        const site = await response.json();
+        
+        if (site.type !== 'static') {
+            showAlert('File management is only available for static sites.', 'warning');
+            setTimeout(() => window.history.back(), 2000);
+            return;
+        }
+        
+        document.getElementById('siteName').textContent = site.name;
+        document.title = `File Manager - ${site.name}`;
+    } catch (error) {
+        showAlert('Error loading site information: ' + error.message, 'danger');
+    }
+}
+
+// Load files for current path
+async function loadFiles(path) {
+    currentPath = path;
+    showLoadingState();
+    
+    try {
+        const response = await fetchWithAuth(`/api/files/sites/${siteId}/files?path=${encodeURIComponent(path)}`);
+        const data = await response.json();
+        
+        updateBreadcrumb(path);
+        displayFiles(data.files);
+        
+    } catch (error) {
+        showAlert('Error loading files: ' + error.message, 'danger');
+        showEmptyState();
+    }
+}
+
+// Update breadcrumb navigation
+function updateBreadcrumb(path) {
+    const breadcrumb = document.getElementById('breadcrumb');
+    breadcrumb.innerHTML = '<li class="breadcrumb-item"><a href="#" onclick="navigateToPath(\'/\')">Root</a></li>';
+    
+    if (path !== '/' && path) {
+        const parts = path.split('/').filter(part => part);
+        let currentPath = '/';
+        
+        for (let i = 0; i < parts.length; i++) {
+            currentPath += parts[i] + '/';
+            const isLast = i === parts.length - 1;
+            
+            if (isLast) {
+                breadcrumb.innerHTML += `<li class="breadcrumb-item active">${parts[i]}</li>`;
+            } else {
+                breadcrumb.innerHTML += `<li class="breadcrumb-item"><a href="#" onclick="navigateToPath('${currentPath}')">${parts[i]}</a></li>`;
+            }
+        }
+    }
+}
+
+// Display files in table
+function displayFiles(files) {
+    const tableBody = document.getElementById('fileTableBody');
+    const fileList = document.getElementById('fileList');
+    const emptyState = document.getElementById('emptyState');
+    const loadingState = document.getElementById('loadingState');
+    
+    loadingState.style.display = 'none';
+    
+    if (!files || files.length === 0) {
+        showEmptyState();
+        return;
+    }
+    
+    tableBody.innerHTML = '';
+    
+    files.forEach(file => {
+        const row = createFileRow(file);
+        tableBody.appendChild(row);
+    });
+    
+    fileList.style.display = 'block';
+    emptyState.style.display = 'none';
+}
+
+// Create file row
+function createFileRow(file) {
+    const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    
+    // Icon
+    const iconCell = document.createElement('td');
+    const icon = getFileIcon(file);
+    iconCell.innerHTML = `<i class="bi ${icon}"></i>`;
+    
+    // Name
+    const nameCell = document.createElement('td');
+    nameCell.innerHTML = `<strong>${file.name}</strong>`;
+    
+    // Size
+    const sizeCell = document.createElement('td');
+    sizeCell.textContent = file.type === 'directory' ? '-' : formatFileSize(file.size);
+    
+    // Modified
+    const modifiedCell = document.createElement('td');
+    modifiedCell.textContent = formatDate(file.modified);
+    
+    // Actions
+    const actionsCell = document.createElement('td');
+    actionsCell.innerHTML = createActionsButtons(file);
+    
+    row.appendChild(iconCell);
+    row.appendChild(nameCell);
+    row.appendChild(sizeCell);
+    row.appendChild(modifiedCell);
+    row.appendChild(actionsCell);
+    
+    // Double-click to navigate or edit
+    row.ondblclick = () => {
+        if (file.type === 'directory') {
+            navigateToPath(file.relative_path);
+        } else if (file.is_editable) {
+            editFile(file.relative_path, file.name);
+        }
+    };
+    
+    return row;
+}
+
+// Get appropriate icon for file type
+function getFileIcon(file) {
+    if (file.type === 'directory') {
+        return file.name === '..' ? 'fas fa-arrow-up text-primary' : 'fas fa-folder text-warning';
+    }
+    
+    const ext = file.name.split('.').pop().toLowerCase();
+    const iconMap = {
+        'html': 'fas fa-code text-danger',
+        'css': 'fas fa-palette text-info',
+        'js': 'fab fa-js-square text-warning',
+        'json': 'fas fa-code text-success',
+        'png': 'fas fa-image text-success',
+        'jpg': 'fas fa-image text-success',
+        'jpeg': 'fas fa-image text-success',
+        'gif': 'fas fa-image text-success',
+        'svg': 'fas fa-image text-success',
+        'pdf': 'fas fa-file-pdf text-danger',
+        'txt': 'fas fa-file-alt text-secondary',
+        'md': 'fab fa-markdown text-info',
+        'zip': 'fas fa-file-archive text-warning'
+    };
+    
+    return iconMap[ext] || 'fas fa-file text-secondary';
+}
+
+// Create action buttons
+function createActionsButtons(file) {
+    let buttons = '';
+    
+    if (file.name === '..') {
+        return '';
+    }
+    
+    if (file.type === 'directory') {
+        buttons += `<button class="btn btn-sm btn-outline-primary me-1" onclick="navigateToPath('${file.relative_path}')" title="Open">
+                        <i class="fas fa-folder-open"></i>
+                    </button>`;
+    } else {
+        buttons += `<button class="btn btn-sm btn-outline-success me-1" onclick="downloadFile('${file.relative_path}')" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>`;
+        
+        if (file.is_editable) {
+            buttons += `<button class="btn btn-sm btn-outline-info me-1" onclick="editFile('${file.relative_path}', '${file.name}')" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>`;
+        }
+    }
+    
+    buttons += `<button class="btn btn-sm btn-outline-warning me-1" onclick="showRenameModal('${file.relative_path}', '${file.name}')" title="Rename">
+                    <i class="fas fa-pen"></i>
+                </button>`;
+    
+    buttons += `<button class="btn btn-sm btn-outline-danger" onclick="showDeleteModal('${file.relative_path}', '${file.name}')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>`;
+    
+    return buttons;
+}
+
+// Navigation
+function navigateToPath(path) {
+    loadFiles(path);
+}
+
+// Show states
+function showLoadingState() {
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('fileList').style.display = 'none';
+}
+
+function showEmptyState() {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
+    document.getElementById('fileList').style.display = 'none';
+}
+
+// Upload functionality
+function setupUploadArea() {
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    
+    uploadArea.onclick = () => fileInput.click();
+    
+    fileInput.onchange = (e) => {
+        selectedFiles = Array.from(e.target.files);
+        updateUploadArea();
+    };
+    
+    // Drag and drop
+    uploadArea.ondragover = (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('border-primary');
+    };
+    
+    uploadArea.ondragleave = () => {
+        uploadArea.classList.remove('border-primary');
+    };
+    
+    uploadArea.ondrop = (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('border-primary');
+        selectedFiles = Array.from(e.dataTransfer.files);
+        updateUploadArea();
+    };
+}
+
+function updateUploadArea() {
+    const uploadArea = document.getElementById('uploadArea');
+    
+    if (selectedFiles.length > 0) {
+        uploadArea.innerHTML = `
+            <i class="fas fa-files text-success" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">${selectedFiles.length} file(s) selected</h5>
+            <p class="text-muted">Click upload to proceed</p>
+        `;
+    }
+}
+
+function showUploadModal() {
+    const modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+    selectedFiles = [];
+    document.getElementById('fileInput').value = '';
+    document.getElementById('uploadProgress').style.display = 'none';
+    document.getElementById('uploadResults').style.display = 'none';
+    
+    // Reset upload area
+    const uploadArea = document.getElementById('uploadArea');
+    uploadArea.innerHTML = `
+        <i class="fas fa-cloud-upload-alt text-muted" style="font-size: 3rem;"></i>
+        <h5 class="mt-3">Drag & Drop Files Here</h5>
+        <p class="text-muted">or click to browse files</p>
+    `;
+    
+    modal.show();
+}
+
+async function uploadFiles() {
+    if (selectedFiles.length === 0) {
+        showAlert('Please select files to upload.', 'warning');
+        return;
+    }
+    
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadResults = document.getElementById('uploadResults');
+    const extractZip = document.getElementById('extractZip').checked;
+    
+    uploadBtn.disabled = true;
+    uploadProgress.style.display = 'block';
+    
+    try {
+        const formData = new FormData();
+        formData.append('path', currentPath);
+        formData.append('extract_zip', extractZip);
+        
+        selectedFiles.forEach(file => {
+            formData.append('files', file);
+        });
+        
+        const response = await fetchWithAuth(`/api/files/sites/${siteId}/files/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        // Show results
+        const resultsList = document.getElementById('uploadResultsList');
+        resultsList.innerHTML = '';
+        
+        result.results.forEach(fileResult => {
+            const li = document.createElement('li');
+            li.className = fileResult.success ? 'text-success' : 'text-danger';
+            li.innerHTML = `<i class="fas ${fileResult.success ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${fileResult.filename}: ${fileResult.message}`;
+            resultsList.appendChild(li);
+        });
+        
+        uploadResults.style.display = 'block';
+        uploadProgress.style.display = 'none';
+        
+        if (result.uploaded > 0) {
+            showAlert(`Successfully uploaded ${result.uploaded} of ${result.total} files.`, 'success');
+            loadFiles(currentPath); // Refresh file list
+        }
+        
+    } catch (error) {
+        showAlert('Error uploading files: ' + error.message, 'danger');
+        uploadProgress.style.display = 'none';
+    } finally {
+        uploadBtn.disabled = false;
+    }
+}
+
+// Create file/directory
+function showCreateModal(type) {
+    createType = type;
+    const modal = new bootstrap.Modal(document.getElementById('createModal'));
+    const title = document.getElementById('createModalTitle');
+    const contentGroup = document.getElementById('fileContentGroup');
+    
+    title.textContent = type === 'directory' ? 'Create New Folder' : 'Create New File';
+    contentGroup.style.display = type === 'file' ? 'block' : 'none';
+    
+    document.getElementById('createName').value = '';
+    document.getElementById('createContent').value = '';
+    
+    modal.show();
+}
+
+async function createItem() {
+    const name = document.getElementById('createName').value.trim();
+    const content = document.getElementById('createContent').value;
+    
+    if (!name) {
+        showAlert('Please enter a name.', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetchWithAuth(`/api/files/sites/${siteId}/files/create?path=${encodeURIComponent(currentPath)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                type: createType,
+                content: content
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('createModal')).hide();
+            loadFiles(currentPath);
+        } else {
+            showAlert(result.message, 'danger');
+        }
+        
+    } catch (error) {
+        showAlert('Error creating item: ' + error.message, 'danger');
+    }
+}
+
+// Edit file
+async function editFile(filePath, fileName) {
+    currentEditFile = filePath;
+    
+    try {
+        const response = await fetchWithAuth(`/api/files/sites/${siteId}/files/content?file_path=${encodeURIComponent(filePath)}`);
+        const data = await response.json();
+        
+        document.getElementById('editFileName').textContent = fileName;
+        document.getElementById('fileEditor').value = data.content;
+        
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        modal.show();
+        
+    } catch (error) {
+        showAlert('Error loading file content: ' + error.message, 'danger');
+    }
+}
+
+async function saveFile() {
+    const content = document.getElementById('fileEditor').value;
+    
+    try {
+        const response = await fetchWithAuth(`/api/files/sites/${siteId}/files/content?file_path=${encodeURIComponent(currentEditFile)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+        } else {
+            showAlert(result.message, 'danger');
+        }
+        
+    } catch (error) {
+        showAlert('Error saving file: ' + error.message, 'danger');
+    }
+}
+
+// Rename
+function showRenameModal(filePath, currentName) {
+    currentRenameFile = filePath;
+    document.getElementById('renameName').value = currentName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('renameModal'));
+    modal.show();
+}
+
+async function renameItem() {
+    const newName = document.getElementById('renameName').value.trim();
+    
+    if (!newName) {
+        showAlert('Please enter a new name.', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetchWithAuth(`/api/files/sites/${siteId}/files/rename?file_path=${encodeURIComponent(currentRenameFile)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ new_name: newName })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('renameModal')).hide();
+            loadFiles(currentPath);
+        } else {
+            showAlert(result.message, 'danger');
+        }
+        
+    } catch (error) {
+        showAlert('Error renaming item: ' + error.message, 'danger');
+    }
+}
+
+// Delete
+function showDeleteModal(filePath, fileName) {
+    currentDeleteFile = filePath;
+    document.getElementById('deleteItemName').textContent = fileName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+async function deleteItem() {
+    try {
+        const response = await fetchWithAuth(`/api/files/sites/${siteId}/files?file_path=${encodeURIComponent(currentDeleteFile)}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+            loadFiles(currentPath);
+        } else {
+            showAlert(result.message, 'danger');
+        }
+        
+    } catch (error) {
+        showAlert('Error deleting item: ' + error.message, 'danger');
+    }
+}
+
+// Download file
+function downloadFile(filePath) {
+    const token = localStorage.getItem('access_token');
+    const tokenType = localStorage.getItem('token_type') || 'bearer';
+    const url = `/api/files/sites/${siteId}/files/download?file_path=${encodeURIComponent(filePath)}`;
+    
+    // Create a temporary link to trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.style.display = 'none';
+    
+    // Add auth header via fetch and create blob URL
+    fetch(url, {
+        headers: {
+            'Authorization': `${tokenType} ${token}`
+        }
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        link.href = blobUrl;
+        link.download = filePath.split('/').pop();
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+    })
+    .catch(error => {
+        showAlert('Error downloading file: ' + error.message, 'danger');
+    });
+}
+
+// Utility functions
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+}
+
+// Auth helper - removed since using global fetchWithAuth from app.js
+
+// Alert helper
+function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

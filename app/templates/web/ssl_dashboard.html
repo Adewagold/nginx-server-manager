@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}SSL Certificates - Nginx Site Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-shield-alt me-2"></i>SSL Certificate Management</h1>
+            <div class="btn-group">
+                <button class="btn btn-outline-success" onclick="setupAutoRenewal()">
+                    <i class="fas fa-cog me-2"></i>Setup Auto-Renewal
+                </button>
+                <button class="btn btn-primary" onclick="checkCertbotStatus()">
+                    <i class="fas fa-check-circle me-2"></i>Check System Status
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SSL System Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-bg-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-certificate fa-2x me-3"></i>
+                    <div>
+                        <h5 class="card-title mb-0" id="totalCertificates">-</h5>
+                        <p class="card-text">Total Certificates</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-check-circle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="card-title mb-0" id="activeCertificates">-</h5>
+                        <p class="card-text">Active Certificates</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-warning">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="card-title mb-0" id="expiringCertificates">-</h5>
+                        <p class="card-text">Expiring Soon</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-bg-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-sync fa-2x me-3"></i>
+                    <div>
+                        <h5 class="card-title mb-0" id="autoRenewalStatus">-</h5>
+                        <p class="card-text">Auto-Renewal</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SSL Sites Table -->
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">SSL-Enabled Sites</h5>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" onclick="refreshCertificates()">
+                    <i class="fas fa-sync me-1"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="sslSitesContainer">
+            <div class="d-flex justify-content-center p-4">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading SSL sites...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Modal -->
+<div class="modal fade" id="actionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="actionModalTitle">SSL Action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="actionModalBody">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmActionBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let sslSites = [];
+let actionModal;
+
+document.addEventListener('DOMContentLoaded', function() {
+    actionModal = new bootstrap.Modal(document.getElementById('actionModal'));
+    loadSSLDashboard();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(refreshCertificates, 30000);
+});
+
+async function loadSSLDashboard() {
+    try {
+        await Promise.all([
+            loadSSLSites(),
+            loadSSLSystemStatus(),
+            loadAutoRenewalStatus()
+        ]);
+    } catch (error) {
+        console.error('Error loading SSL dashboard:', error);
+        showToast('Error', 'Failed to load SSL dashboard', 'error');
+    }
+}
+
+async function loadSSLSites() {
+    try {
+        const response = await fetchWithAuth('/api/sites/');
+        if (response.ok) {
+            const data = await response.json();
+            sslSites = data.sites.filter(site => site.ssl_enabled);
+            renderSSLSites();
+            updateSSLStats();
+        } else {
+            throw new Error('Failed to load SSL sites');
+        }
+    } catch (error) {
+        console.error('Error loading SSL sites:', error);
+        document.getElementById('sslSitesContainer').innerHTML = 
+            '<div class="alert alert-danger">Failed to load SSL sites</div>';
+    }
+}
+
+async function loadSSLSystemStatus() {
+    try {
+        const response = await fetchWithAuth('/api/ssl/system/status');
+        if (response.ok) {
+            const status = await response.json();
+            updateSystemStatus(status);
+        }
+    } catch (error) {
+        console.error('Error loading SSL system status:', error);
+    }
+}
+
+async function loadAutoRenewalStatus() {
+    try {
+        const response = await fetchWithAuth('/api/ssl/auto-renewal/status');
+        if (response.ok) {
+            const status = await response.json();
+            updateAutoRenewalStatus(status);
+        }
+    } catch (error) {
+        console.error('Error loading auto-renewal status:', error);
+    }
+}
+
+function renderSSLSites() {
+    const container = document.getElementById('sslSitesContainer');
+    
+    if (sslSites.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted p-4">
+                <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                <h5>No SSL-enabled sites</h5>
+                <p>Enable SSL for your sites to see them here.</p>
+                <a href="/sites" class="btn btn-primary">Manage Sites</a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Site</th>
+                        <th>Domain</th>
+                        <th>SSL Status</th>
+                        <th>Certificate Expiry</th>
+                        <th>Days Left</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    sslSites.forEach(site => {
+        const statusBadge = getSSLStatusBadge(site);
+        const expiryInfo = getExpiryInfo(site);
+        
+        html += `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-shield-alt text-success me-2"></i>
+                        <div>
+                            <div class="fw-bold">${site.name}</div>
+                            <small class="text-muted">${site.type}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <a href="https://${site.domain}" target="_blank" class="text-decoration-none">
+                        <i class="fas fa-lock text-success me-1"></i>
+                        ${site.domain} <i class="fas fa-external-link-alt fa-sm"></i>
+                    </a>
+                </td>
+                <td>${statusBadge}</td>
+                <td>${expiryInfo.date}</td>
+                <td>${expiryInfo.daysLeft}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-warning" onclick="renewCertificate(${site.id})" title="Renew Certificate">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="disableSSL(${site.id})" title="Disable SSL">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function getSSLStatusBadge(site) {
+    const status = site.ssl_status || 'disabled';
+    switch (status) {
+        case 'active':
+            return '<span class="badge bg-success">Active</span>';
+        case 'pending':
+            return '<span class="badge bg-warning">Pending</span>';
+        case 'expired':
+            return '<span class="badge bg-danger">Expired</span>';
+        case 'error':
+            return '<span class="badge bg-danger">Error</span>';
+        default:
+            return '<span class="badge bg-secondary">Unknown</span>';
+    }
+}
+
+function getExpiryInfo(site) {
+    if (!site.ssl_expiry_date) {
+        return { date: 'Unknown', daysLeft: 'N/A' };
+    }
+    
+    const expiryDate = new Date(site.ssl_expiry_date);
+    const now = new Date();
+    const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+    
+    let daysLeftText = daysLeft > 0 ? `${daysLeft} days` : 'Expired';
+    let badgeClass = 'text-success';
+    
+    if (daysLeft <= 7) {
+        badgeClass = 'text-danger';
+    } else if (daysLeft <= 30) {
+        badgeClass = 'text-warning';
+    }
+    
+    return {
+        date: expiryDate.toLocaleDateString(),
+        daysLeft: `<span class="${badgeClass}">${daysLeftText}</span>`
+    };
+}
+
+function updateSSLStats() {
+    const totalCerts = sslSites.length;
+    const activeCerts = sslSites.filter(site => site.ssl_status === 'active').length;
+    const expiringCerts = sslSites.filter(site => {
+        if (!site.ssl_expiry_date) return false;
+        const expiryDate = new Date(site.ssl_expiry_date);
+        const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+        return daysLeft <= 30 && daysLeft > 0;
+    }).length;
+    
+    document.getElementById('totalCertificates').textContent = totalCerts;
+    document.getElementById('activeCertificates').textContent = activeCerts;
+    document.getElementById('expiringCertificates').textContent = expiringCerts;
+}
+
+function updateSystemStatus(status) {
+    console.log('SSL System Status:', status);
+}
+
+function updateAutoRenewalStatus(status) {
+    const statusElement = document.getElementById('autoRenewalStatus');
+    if (status.auto_renewal_enabled) {
+        statusElement.textContent = 'Enabled';
+        statusElement.parentElement.parentElement.className = 'card text-bg-success';
+    } else {
+        statusElement.textContent = 'Disabled';
+        statusElement.parentElement.parentElement.className = 'card text-bg-warning';
+    }
+}
+
+async function refreshCertificates() {
+    await loadSSLDashboard();
+    showToast('Info', 'SSL dashboard refreshed', 'info');
+}
+
+async function renewCertificate(siteId) {
+    const site = sslSites.find(s => s.id === siteId);
+    
+    document.getElementById('actionModalTitle').textContent = 'Renew SSL Certificate';
+    document.getElementById('actionModalBody').innerHTML = `
+        <p>Renew SSL certificate for <strong>${site.domain}</strong>?</p>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            This will attempt to renew the certificate with Let's Encrypt.
+        </div>
+    `;
+    
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    confirmBtn.className = 'btn btn-warning';
+    confirmBtn.textContent = 'Renew Certificate';
+    
+    confirmBtn.onclick = async () => {
+        try {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Renewing...';
+            
+            const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/renew`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ force: true })
+            });
+            
+            if (response.ok) {
+                showToast('Success', 'Certificate renewed successfully', 'success');
+                await loadSSLDashboard();
+                actionModal.hide();
+            } else {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to renew certificate');
+            }
+        } catch (error) {
+            showToast('Error', error.message, 'error');
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Renew Certificate';
+        }
+    };
+    
+    actionModal.show();
+}
+
+async function disableSSL(siteId) {
+    const site = sslSites.find(s => s.id === siteId);
+    
+    document.getElementById('actionModalTitle').textContent = 'Disable SSL';
+    document.getElementById('actionModalBody').innerHTML = `
+        <p>Disable SSL for <strong>${site.domain}</strong>?</p>
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            This will switch the site back to HTTP only.
+        </div>
+    `;
+    
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    confirmBtn.className = 'btn btn-warning';
+    confirmBtn.textContent = 'Disable SSL';
+    
+    confirmBtn.onclick = async () => {
+        try {
+            const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/disable`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                showToast('Success', 'SSL disabled successfully', 'success');
+                await loadSSLDashboard();
+                actionModal.hide();
+            } else {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to disable SSL');
+            }
+        } catch (error) {
+            showToast('Error', error.message, 'error');
+        }
+    };
+    
+    actionModal.show();
+}
+
+async function setupAutoRenewal() {
+    document.getElementById('actionModalTitle').textContent = 'Setup Auto-Renewal';
+    document.getElementById('actionModalBody').innerHTML = `
+        <p>Setup automatic SSL certificate renewal?</p>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            This will create a systemd timer that runs twice daily to check and renew certificates automatically.
+        </div>
+    `;
+    
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    confirmBtn.className = 'btn btn-success';
+    confirmBtn.textContent = 'Setup Auto-Renewal';
+    
+    confirmBtn.onclick = async () => {
+        try {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Setting up...';
+            
+            const response = await fetchWithAuth('/api/ssl/auto-renewal/setup', {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                showToast('Success', 'Auto-renewal setup successfully', 'success');
+                await loadAutoRenewalStatus();
+                actionModal.hide();
+            } else {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to setup auto-renewal');
+            }
+        } catch (error) {
+            showToast('Error', error.message, 'error');
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Setup Auto-Renewal';
+        }
+    };
+    
+    actionModal.show();
+}
+
+async function checkCertbotStatus() {
+    try {
+        const response = await fetchWithAuth('/api/ssl/system/status');
+        if (response.ok) {
+            const status = await response.json();
+            
+            let statusHtml = '<div class="row">';
+            statusHtml += `<div class="col-md-6"><strong>Certbot Available:</strong> ${status.certbot_available ? '✅ Yes' : '❌ No'}</div>`;
+            statusHtml += `<div class="col-md-6"><strong>SSL Sites:</strong> ${status.ssl_sites_count}</div>`;
+            statusHtml += `<div class="col-md-6"><strong>Expiring Soon:</strong> ${status.expiring_certificates_count}</div>`;
+            statusHtml += `<div class="col-md-6"><strong>Auto-Renewal:</strong> ${status.auto_renewal.auto_renewal_enabled ? '✅ Enabled' : '❌ Disabled'}</div>`;
+            statusHtml += '</div>';
+            
+            document.getElementById('actionModalTitle').textContent = 'SSL System Status';
+            document.getElementById('actionModalBody').innerHTML = statusHtml;
+            
+            const confirmBtn = document.getElementById('confirmActionBtn');
+            confirmBtn.style.display = 'none';
+            
+            actionModal.show();
+        }
+    } catch (error) {
+        showToast('Error', 'Failed to check system status', 'error');
+    }
+}
+</script>
+{% endblock %}

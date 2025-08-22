@@ -181,9 +181,7 @@ function renderSites() {
         const statusBadge = site.enabled ? 
             '<span class="badge bg-success">Enabled</span>' : 
             '<span class="badge bg-warning">Disabled</span>';
-        const sslBadge = site.ssl_enabled ? 
-            '<span class="badge bg-success">Active</span>' : 
-            '<span class="badge bg-secondary">Inactive</span>';
+        const sslBadge = getSslBadge(site);
         
         html += `
             <tr>
@@ -196,7 +194,8 @@ function renderSites() {
                     </div>
                 </td>
                 <td>
-                    <a href="http://${site.domain}" target="_blank" class="text-decoration-none">
+                    <a href="${site.ssl_enabled ? 'https' : 'http'}://${site.domain}" target="_blank" class="text-decoration-none">
+                        ${site.ssl_enabled ? '<i class="fas fa-lock text-success me-1" title="HTTPS"></i>' : '<i class="fas fa-lock-open text-muted me-1" title="HTTP"></i>'}
                         ${site.domain} <i class="fas fa-external-link-alt fa-sm"></i>
                     </a>
                 </td>
@@ -223,6 +222,22 @@ function renderSites() {
                                 <i class="fas fa-play"></i>
                             </button>`
                         }
+                        ${site.ssl_enabled ? 
+                            `<button class="btn btn-outline-warning" onclick="toggleSSL(${site.id}, false)" title="Disable SSL">
+                                <i class="fas fa-shield-alt"></i>
+                            </button>` :
+                            `<button class="btn btn-outline-success" onclick="enableSSL(${site.id})" title="Enable SSL">
+                                <i class="fas fa-lock"></i>
+                            </button>`
+                        }
+                        ${site.type === 'static' ? 
+                            `<a href="/sites/${site.id}/files" class="btn btn-outline-info" title="Manage Files">
+                                <i class="fas fa-folder"></i>
+                            </a>` : ''
+                        }
+                        <button class="btn btn-outline-info" onclick="viewLogs(${site.id}, '${site.name}')" title="View Logs">
+                            <i class="fas fa-file-alt"></i>
+                        </button>
                         <button class="btn btn-outline-danger" onclick="deleteSite(${site.id}, '${site.name}')" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -318,6 +333,132 @@ function deleteSite(siteId, siteName) {
     };
     
     actionModal.show();
+}
+
+function getSslBadge(site) {
+    if (!site.ssl_enabled) {
+        return '<span class="badge bg-secondary">Disabled</span>';
+    }
+    
+    const status = site.ssl_status || 'disabled';
+    switch (status) {
+        case 'active':
+            return '<span class="badge bg-success">Active</span>';
+        case 'pending':
+            return '<span class="badge bg-warning">Pending</span>';
+        case 'expired':
+            return '<span class="badge bg-danger">Expired</span>';
+        case 'error':
+            return '<span class="badge bg-danger">Error</span>';
+        default:
+            return '<span class="badge bg-secondary">Disabled</span>';
+    }
+}
+
+async function enableSSL(siteId) {
+    const site = allSites.find(s => s.id === siteId);
+    
+    // Create SSL enable modal
+    document.getElementById('actionModalTitle').textContent = 'Enable SSL Certificate';
+    document.getElementById('actionModalBody').innerHTML = `
+        <div class="mb-3">
+            <p>Enable SSL certificate for <strong>${site.domain}</strong>?</p>
+            <p class="text-muted">This will generate a Let's Encrypt certificate and configure HTTPS.</p>
+        </div>
+        <div class="mb-3">
+            <label for="sslEmail" class="form-label">Email for Let's Encrypt notifications:</label>
+            <input type="email" class="form-control" id="sslEmail" placeholder="admin@example.com" required>
+            <div class="form-text">Required for certificate renewal notifications.</div>
+        </div>
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Make sure the domain <strong>${site.domain}</strong> points to this server and the site is accessible via HTTP before enabling SSL.
+        </div>
+    `;
+    
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    confirmBtn.className = 'btn btn-success';
+    confirmBtn.textContent = 'Enable SSL';
+    
+    confirmBtn.onclick = async () => {
+        const email = document.getElementById('sslEmail').value;
+        if (!email) {
+            showToast('Error', 'Email is required for SSL certificate generation', 'error');
+            return;
+        }
+        
+        try {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating Certificate...';
+            
+            const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/enable`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email: email })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                showToast('Success', 'SSL certificate enabled successfully', 'success');
+                await loadSites();
+                actionModal.hide();
+            } else {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to enable SSL');
+            }
+        } catch (error) {
+            showToast('Error', error.message, 'error');
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Enable SSL';
+        }
+    };
+    
+    actionModal.show();
+}
+
+async function toggleSSL(siteId, enable) {
+    const action = enable ? 'enable' : 'disable';
+    const site = allSites.find(s => s.id === siteId);
+    
+    if (!enable) {
+        // Disable SSL confirmation
+        document.getElementById('actionModalTitle').textContent = 'Disable SSL';
+        document.getElementById('actionModalBody').innerHTML = `
+            <p>Are you sure you want to disable SSL for <strong>${site.domain}</strong>?</p>
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                This will switch the site back to HTTP only. The certificate will remain installed.
+            </div>
+        `;
+        
+        const confirmBtn = document.getElementById('confirmActionBtn');
+        confirmBtn.className = 'btn btn-warning';
+        confirmBtn.textContent = 'Disable SSL';
+        
+        confirmBtn.onclick = async () => {
+            try {
+                const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/disable`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('Success', 'SSL disabled successfully', 'success');
+                    await loadSites();
+                    actionModal.hide();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to disable SSL');
+                }
+            } catch (error) {
+                showToast('Error', error.message, 'error');
+            }
+        };
+        
+        actionModal.show();
+    }
 }
 
 // Utility function for debouncing

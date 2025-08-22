@@ -110,6 +110,79 @@
                         </div>
                     </div>
                     
+                    <!-- SSL Configuration Section -->
+                    <div class="border rounded p-3 mb-3" id="sslSection">
+                        <h6 class="mb-3"><i class="fas fa-lock me-1"></i>SSL Configuration</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="sslEnabled" name="ssl_enabled">
+                                    <label class="form-check-label" for="sslEnabled">
+                                        <strong>Enable SSL (HTTPS)</strong>
+                                    </label>
+                                    <div class="form-text">Enable automatic SSL certificate generation with Let's Encrypt</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div id="sslStatus" class="text-end">
+                                    <!-- SSL status badge will be shown here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="sslOptions" class="d-none">
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <label for="sslEmail" class="form-label">Email for Let's Encrypt <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control" id="sslEmail" name="ssl_email" placeholder="admin@example.com">
+                                    <div class="form-text">Required for certificate renewal notifications</div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Certificate Actions</label>
+                                    <div class="d-grid gap-2">
+                                        <button type="button" class="btn btn-outline-success btn-sm" id="generateCertBtn" onclick="generateSSLCertificate()">
+                                            <i class="fas fa-certificate me-1"></i>Generate
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm" id="renewCertBtn" onclick="renewSSLCertificate()" style="display: none;">
+                                            <i class="fas fa-sync me-1"></i>Renew
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="sslCertInfo" class="d-none">
+                                <div class="alert alert-info">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small><strong>Certificate Status:</strong> <span id="certStatus"></span></small><br>
+                                            <small><strong>Issuer:</strong> Let's Encrypt</small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small><strong>Expires:</strong> <span id="certExpiry"></span></small><br>
+                                            <small><strong>Days Remaining:</strong> <span id="certDaysLeft"></span></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <div class="d-flex">
+                                    <i class="fas fa-exclamation-triangle me-2 mt-1"></i>
+                                    <div>
+                                        <small><strong>Requirements for SSL:</strong></small>
+                                        <ul class="small mb-0 mt-1">
+                                            <li>Domain must point to this server</li>
+                                            <li>Site must be accessible via HTTP (port 80)</li>
+                                            <li>Site must be enabled before generating SSL certificate</li>
+                                            <li>Domain validation may take a few minutes</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <hr>
                     
                     <div class="d-flex justify-content-between">
@@ -228,6 +301,11 @@ function populateForm(siteData) {
             servers.forEach(server => addServerInput(server));
         }
     }
+    
+    // SSL Configuration
+    document.getElementById('sslEnabled').checked = siteData.ssl_enabled || false;
+    updateSSLSection();
+    updateSSLStatus(siteData);
 }
 
 function setupFormHandlers() {
@@ -237,6 +315,9 @@ function setupFormHandlers() {
             showConfigSection(e.target.value);
         });
     });
+    
+    // SSL checkbox
+    document.getElementById('sslEnabled').addEventListener('change', updateSSLSection);
     
     // Form submission
     document.getElementById('editSiteForm').addEventListener('submit', async (e) => {
@@ -399,6 +480,156 @@ async function testConfiguration() {
 function cancelEdit() {
     if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
         window.location.href = `/sites/${siteId}`;
+    }
+}
+
+// SSL Functions
+function updateSSLSection() {
+    const sslEnabled = document.getElementById('sslEnabled').checked;
+    const sslOptions = document.getElementById('sslOptions');
+    
+    if (sslEnabled) {
+        sslOptions.classList.remove('d-none');
+    } else {
+        sslOptions.classList.add('d-none');
+    }
+}
+
+function updateSSLStatus(siteData) {
+    const statusDiv = document.getElementById('sslStatus');
+    const certInfo = document.getElementById('sslCertInfo');
+    const renewBtn = document.getElementById('renewCertBtn');
+    const generateBtn = document.getElementById('generateCertBtn');
+    
+    if (!siteData.ssl_enabled) {
+        statusDiv.innerHTML = '<span class="badge bg-secondary">Disabled</span>';
+        certInfo.classList.add('d-none');
+        renewBtn.style.display = 'none';
+        generateBtn.style.display = 'block';
+        return;
+    }
+    
+    const status = siteData.ssl_status || 'disabled';
+    let badgeClass = 'bg-secondary';
+    let statusText = 'Disabled';
+    
+    switch (status) {
+        case 'active':
+            badgeClass = 'bg-success';
+            statusText = 'Active';
+            break;
+        case 'pending':
+            badgeClass = 'bg-warning';
+            statusText = 'Pending';
+            break;
+        case 'expired':
+            badgeClass = 'bg-danger';
+            statusText = 'Expired';
+            break;
+        case 'error':
+            badgeClass = 'bg-danger';
+            statusText = 'Error';
+            break;
+    }
+    
+    statusDiv.innerHTML = `<span class="badge ${badgeClass}">${statusText}</span>`;
+    
+    // Show certificate info if active
+    if (status === 'active' && siteData.ssl_expiry_date) {
+        document.getElementById('certStatus').textContent = statusText;
+        
+        const expiryDate = new Date(siteData.ssl_expiry_date);
+        document.getElementById('certExpiry').textContent = expiryDate.toLocaleDateString();
+        
+        const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+        document.getElementById('certDaysLeft').textContent = daysLeft > 0 ? daysLeft : 'Expired';
+        
+        certInfo.classList.remove('d-none');
+        renewBtn.style.display = 'block';
+        generateBtn.style.display = 'none';
+    } else {
+        certInfo.classList.add('d-none');
+        renewBtn.style.display = 'none';
+        generateBtn.style.display = 'block';
+    }
+}
+
+async function generateSSLCertificate() {
+    const email = document.getElementById('sslEmail').value;
+    if (!email) {
+        showToast('Error', 'Email is required for SSL certificate generation', 'error');
+        return;
+    }
+    
+    if (!originalSiteData.enabled) {
+        showToast('Error', 'Site must be enabled before generating SSL certificate', 'error');
+        return;
+    }
+    
+    const generateBtn = document.getElementById('generateCertBtn');
+    const originalText = generateBtn.innerHTML;
+    
+    try {
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+        
+        const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/enable`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: email })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showToast('Success', 'SSL certificate generated successfully', 'success');
+            
+            // Reload site data to update SSL status
+            await loadSiteData();
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to generate SSL certificate');
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = originalText;
+    }
+}
+
+async function renewSSLCertificate() {
+    const renewBtn = document.getElementById('renewCertBtn');
+    const originalText = renewBtn.innerHTML;
+    
+    try {
+        renewBtn.disabled = true;
+        renewBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Renewing...';
+        
+        const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/renew`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ force: true })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showToast('Success', 'SSL certificate renewed successfully', 'success');
+            
+            // Reload site data to update SSL status
+            await loadSiteData();
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to renew SSL certificate');
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    } finally {
+        renewBtn.disabled = false;
+        renewBtn.innerHTML = originalText;
     }
 }
 </script>
