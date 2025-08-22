@@ -117,6 +117,9 @@
                     <button class="btn btn-outline-info" onclick="checkNginxStatus()">
                         <i class="fas fa-heartbeat me-2"></i>Check System Status
                     </button>
+                    <button class="btn btn-outline-warning" onclick="viewSystemLogs()">
+                        <i class="fas fa-file-alt me-2"></i>View System Logs
+                    </button>
                 </div>
             </div>
         </div>
@@ -340,6 +343,10 @@ async function checkNginxStatus() {
     } catch (error) {
         showToast('Error', 'Failed to check system status', 'error');
     }
+}
+
+function viewSystemLogs() {
+    openLogsModal(null, 'System');
 }
 </script>
 {% endblock %}

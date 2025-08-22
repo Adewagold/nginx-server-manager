@@ -1,0 +1,513 @@
+<!-- Log Viewing Modal -->
+<div class="modal fade" id="logsModal" tabindex="-1" aria-labelledby="logsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logsModalLabel">
+                    <i class="fas fa-file-alt me-2"></i>Log Viewer
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <ul class="nav nav-tabs" id="logTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="access-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#access-logs" type="button" role="tab">
+                                    <i class="fas fa-globe me-1"></i>Access Logs
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="error-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#error-logs" type="button" role="tab">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Error Logs
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-outline-success btn-sm" id="refreshLogs">
+                            <i class="fas fa-sync me-1"></i>Refresh
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" id="downloadLogs">
+                            <i class="fas fa-download me-1"></i>Download
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="logLines" class="form-label">Lines to show:</label>
+                        <select class="form-select form-select-sm" id="logLines">
+                            <option value="50">50 lines</option>
+                            <option value="100" selected>100 lines</option>
+                            <option value="250">250 lines</option>
+                            <option value="500">500 lines</option>
+                            <option value="1000">1000 lines</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="logSearch" class="form-label">Search/Filter:</label>
+                        <input type="text" class="form-control form-control-sm" id="logSearch" 
+                               placeholder="Search logs...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Auto-refresh:</label><br>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoRefresh">
+                            <label class="form-check-label" for="autoRefresh">
+                                Every 5 seconds
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="logTabContent">
+                    <!-- Access Logs Tab -->
+                    <div class="tab-pane fade show active" id="access-logs" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Access Logs</h6>
+                                <small class="text-muted" id="accessLogInfo">Loading...</small>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="accessLogContent" class="log-content">
+                                    <div class="text-center p-3">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading logs...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Error Logs Tab -->
+                    <div class="tab-pane fade" id="error-logs" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Error Logs</h6>
+                                <small class="text-muted" id="errorLogInfo">Click to load error logs</small>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="errorLogContent" class="log-content">
+                                    <div class="text-center p-3 text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Click the Error Logs tab to load error logs
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.log-content {
+    background: #1e1e1e;
+    color: #f8f8f2;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 1rem;
+    border-radius: 0.375rem;
+}
+
+.log-entry {
+    padding: 2px 0;
+    border-left: 3px solid transparent;
+    padding-left: 8px;
+    margin: 1px 0;
+}
+
+.log-entry:hover {
+    background-color: #2d2d2d;
+}
+
+.log-entry.status-2xx {
+    border-left-color: #28a745;
+}
+
+.log-entry.status-3xx {
+    border-left-color: #17a2b8;
+}
+
+.log-entry.status-4xx {
+    border-left-color: #ffc107;
+}
+
+.log-entry.status-5xx {
+    border-left-color: #dc3545;
+}
+
+.log-entry.error-level {
+    border-left-color: #dc3545;
+}
+
+.log-entry.warn-level {
+    border-left-color: #ffc107;
+}
+
+.log-entry.info-level {
+    border-left-color: #17a2b8;
+}
+
+.log-timestamp {
+    color: #6272a4;
+    font-weight: bold;
+}
+
+.log-ip {
+    color: #50fa7b;
+}
+
+.log-method {
+    color: #8be9fd;
+    font-weight: bold;
+}
+
+.log-path {
+    color: #ffb86c;
+}
+
+.log-status {
+    font-weight: bold;
+}
+
+.log-status.status-2xx {
+    color: #50fa7b;
+}
+
+.log-status.status-3xx {
+    color: #8be9fd;
+}
+
+.log-status.status-4xx {
+    color: #f1fa8c;
+}
+
+.log-status.status-5xx {
+    color: #ff5555;
+}
+
+.log-size {
+    color: #bd93f9;
+}
+
+.log-level {
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.log-level.error {
+    color: #ff5555;
+}
+
+.log-level.warn {
+    color: #f1fa8c;
+}
+
+.log-level.info {
+    color: #8be9fd;
+}
+
+.log-message {
+    color: #f8f8f2;
+}
+
+.log-user-agent {
+    color: #6272a4;
+    font-style: italic;
+}
+
+.empty-logs {
+    text-align: center;
+    color: #6272a4;
+    padding: 2rem;
+}
+</style>
+
+<script>
+// Global variables for log viewer
+let currentSiteId = null;
+let currentLogType = 'access';
+let autoRefreshInterval = null;
+
+// Log viewing functions
+function openLogsModal(siteId = null, siteName = null) {
+    currentSiteId = siteId;
+    
+    // Update modal title
+    const title = siteName ? `Log Viewer - ${siteName}` : 'System Log Viewer';
+    document.getElementById('logsModalLabel').innerHTML = `<i class="fas fa-file-alt me-2"></i>${title}`;
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+    modal.show();
+    
+    // Load initial logs
+    loadLogs();
+    
+    // Set up tab switching
+    setupLogTabs();
+    
+    // Set up controls
+    setupLogControls();
+}
+
+function setupLogTabs() {
+    const accessTab = document.getElementById('access-tab');
+    const errorTab = document.getElementById('error-tab');
+    
+    accessTab.addEventListener('click', () => {
+        currentLogType = 'access';
+        loadLogs();
+    });
+    
+    errorTab.addEventListener('click', () => {
+        currentLogType = 'error';
+        loadLogs();
+    });
+}
+
+function setupLogControls() {
+    // Refresh button
+    document.getElementById('refreshLogs').addEventListener('click', loadLogs);
+    
+    // Download button
+    document.getElementById('downloadLogs').addEventListener('click', downloadLogs);
+    
+    // Lines selector
+    document.getElementById('logLines').addEventListener('change', loadLogs);
+    
+    // Search input with debounce
+    let searchTimeout;
+    document.getElementById('logSearch').addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            loadLogs();
+        }, 500);
+    });
+    
+    // Auto-refresh toggle
+    document.getElementById('autoRefresh').addEventListener('change', (e) => {
+        if (e.target.checked) {
+            startAutoRefresh();
+        } else {
+            stopAutoRefresh();
+        }
+    });
+}
+
+async function loadLogs() {
+    const lines = document.getElementById('logLines').value;
+    const search = document.getElementById('logSearch').value;
+    
+    // Show loading
+    const contentDiv = currentLogType === 'access' ? 
+        document.getElementById('accessLogContent') : 
+        document.getElementById('errorLogContent');
+    
+    contentDiv.innerHTML = `
+        <div class="text-center p-3">
+            <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Loading logs...</span>
+            </div>
+        </div>
+    `;
+    
+    try {
+        // Build API URL
+        let apiUrl;
+        if (currentSiteId) {
+            apiUrl = `/api/sites/${currentSiteId}/logs/${currentLogType}?lines=${lines}`;
+        } else {
+            apiUrl = `/api/system/logs/nginx/${currentLogType}?lines=${lines}`;
+        }
+        
+        if (search) {
+            apiUrl += `&search=${encodeURIComponent(search)}`;
+        }
+        
+        const response = await fetchWithAuth(apiUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to load logs: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        renderLogs(data);
+        
+    } catch (error) {
+        console.error('Error loading logs:', error);
+        contentDiv.innerHTML = `
+            <div class="empty-logs">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Error loading logs: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function renderLogs(data) {
+    const contentDiv = currentLogType === 'access' ? 
+        document.getElementById('accessLogContent') : 
+        document.getElementById('errorLogContent');
+    
+    const infoDiv = currentLogType === 'access' ? 
+        document.getElementById('accessLogInfo') : 
+        document.getElementById('errorLogInfo');
+    
+    // Update info
+    infoDiv.textContent = `${data.total_entries} entries from ${data.log_files.length} file(s)`;
+    
+    if (data.entries.length === 0) {
+        contentDiv.innerHTML = `
+            <div class="empty-logs">
+                <i class="fas fa-info-circle me-2"></i>
+                No log entries found
+            </div>
+        `;
+        return;
+    }
+    
+    // Render log entries
+    let html = '';
+    for (const entry of data.entries) {
+        if (currentLogType === 'access') {
+            html += renderAccessLogEntry(entry);
+        } else {
+            html += renderErrorLogEntry(entry);
+        }
+    }
+    
+    contentDiv.innerHTML = html;
+    
+    // Scroll to top
+    contentDiv.scrollTop = 0;
+}
+
+function renderAccessLogEntry(entry) {
+    const statusClass = getStatusClass(entry.status_code);
+    const timestamp = entry.timestamp || 'Unknown';
+    const ip = entry.ip_address || '-';
+    const method = entry.method || '-';
+    const path = entry.path || '-';
+    const status = entry.status_code || '-';
+    const size = entry.response_size || '-';
+    const userAgent = entry.user_agent || '-';
+    
+    return `
+        <div class="log-entry ${statusClass}" title="${entry.raw_line}">
+            <span class="log-timestamp">[${timestamp}]</span>
+            <span class="log-ip">${ip}</span>
+            <span class="log-method">${method}</span>
+            <span class="log-path">${path}</span>
+            <span class="log-status ${statusClass}">${status}</span>
+            <span class="log-size">${size}</span>
+            ${userAgent.length > 50 ? 
+                `<span class="log-user-agent" title="${userAgent}">${userAgent.substring(0, 50)}...</span>` :
+                `<span class="log-user-agent">${userAgent}</span>`
+            }
+        </div>
+    `;
+}
+
+function renderErrorLogEntry(entry) {
+    const levelClass = `${entry.log_level || 'info'}-level`;
+    const timestamp = entry.timestamp || 'Unknown';
+    const level = entry.log_level || 'info';
+    const message = entry.message || entry.raw_line || '';
+    
+    return `
+        <div class="log-entry ${levelClass}" title="${entry.raw_line}">
+            <span class="log-timestamp">[${timestamp}]</span>
+            <span class="log-level ${level}">[${level}]</span>
+            <span class="log-message">${message}</span>
+        </div>
+    `;
+}
+
+function getStatusClass(statusCode) {
+    if (statusCode >= 200 && statusCode < 300) return 'status-2xx';
+    if (statusCode >= 300 && statusCode < 400) return 'status-3xx';
+    if (statusCode >= 400 && statusCode < 500) return 'status-4xx';
+    if (statusCode >= 500) return 'status-5xx';
+    return '';
+}
+
+function startAutoRefresh() {
+    autoRefreshInterval = setInterval(() => {
+        loadLogs();
+    }, 5000);
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+async function downloadLogs() {
+    const lines = document.getElementById('logLines').value;
+    const search = document.getElementById('logSearch').value;
+    
+    try {
+        // Build API URL
+        let apiUrl;
+        if (currentSiteId) {
+            apiUrl = `/api/sites/${currentSiteId}/logs/${currentLogType}?lines=${lines}`;
+        } else {
+            apiUrl = `/api/system/logs/nginx/${currentLogType}?lines=${lines}`;
+        }
+        
+        if (search) {
+            apiUrl += `&search=${encodeURIComponent(search)}`;
+        }
+        
+        const response = await fetchWithAuth(apiUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to download logs: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Create downloadable content
+        let content = '';
+        for (const entry of data.entries) {
+            content += entry.raw_line + '\n';
+        }
+        
+        // Create and trigger download
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `nginx-${currentLogType}-logs-${new Date().toISOString().slice(0, 19)}.log`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showToast('Success', 'Logs downloaded successfully', 'success');
+        
+    } catch (error) {
+        console.error('Error downloading logs:', error);
+        showToast('Error', error.message, 'error');
+    }
+}
+
+// Clean up when modal is hidden
+document.getElementById('logsModal').addEventListener('hidden.bs.modal', () => {
+    stopAutoRefresh();
+    currentSiteId = null;
+});
+</script>
