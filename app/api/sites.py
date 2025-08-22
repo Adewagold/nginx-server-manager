@@ -528,7 +528,7 @@ async def get_site_access_logs(
                 detail="Lines parameter must be between 1 and 5000"
             )
         
-        entries = log_service.get_access_logs(site_name=site['name'], lines=lines, search=search)
+        entries = log_service.get_access_logs(site_name=site['name'], lines=lines, search=search, site_domain=site['domain'])
         
         # Convert to response format
         log_entries = []

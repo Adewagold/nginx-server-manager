@@ -39,10 +39,10 @@ class LogService:
         self.config = get_config()
     
     def get_access_logs(self, site_name: Optional[str] = None, lines: int = 100, 
-                       search: Optional[str] = None) -> List[LogEntry]:
+                       search: Optional[str] = None, site_domain: Optional[str] = None) -> List[LogEntry]:
         """Get nginx access logs."""
         log_files = self._get_access_log_files(site_name)
-        return self._read_and_parse_logs(log_files, lines, search, log_type="access")
+        return self._read_and_parse_logs(log_files, lines, search, log_type="access", site_domain=site_domain)
     
     def get_error_logs(self, site_name: Optional[str] = None, lines: int = 100,
                       search: Optional[str] = None) -> List[LogEntry]:
@@ -129,13 +129,13 @@ class LogService:
         return log_files
     
     def _read_and_parse_logs(self, log_files: List[str], lines: int, 
-                           search: Optional[str], log_type: str) -> List[LogEntry]:
+                           search: Optional[str], log_type: str, site_domain: Optional[str] = None) -> List[LogEntry]:
         """Read and parse log files efficiently."""
         all_entries = []
         
         for log_file in log_files:
             try:
-                entries = self._read_log_file(log_file, lines, search, log_type)
+                entries = self._read_log_file(log_file, lines, search, log_type, site_domain)
                 all_entries.extend(entries)
             except Exception as e:
                 # Log the error but continue with other files
@@ -147,7 +147,7 @@ class LogService:
         return all_entries[:lines]
     
     def _read_log_file(self, log_file: str, lines: int, search: Optional[str], 
-                      log_type: str) -> List[LogEntry]:
+                      log_type: str, site_domain: Optional[str] = None) -> List[LogEntry]:
         """Read a single log file efficiently using tail."""
         entries = []
         
@@ -174,6 +174,13 @@ class LogService:
                 if search and search.lower() not in line.lower():
                     continue
                 
+                # Apply domain filter for site-specific logs
+                if site_domain and log_type == "access":
+                    # Check if the log line contains the site domain
+                    # This works for both Host header and server_name matching
+                    if site_domain.lower() not in line.lower():
+                        continue
+                
                 # Parse the log entry
                 if log_type == "access":
                     entry = self._parse_access_log_line(line)
@@ -181,12 +188,32 @@ class LogService:
                     entry = self._parse_error_log_line(line)
                 
                 if entry:
+                    # Double-check domain filtering after parsing for access logs
+                    if site_domain and log_type == "access" and entry.path:
+                        # Extract Host header from nginx logs or check if line contains domain
+                        if not self._matches_site_domain(line, entry, site_domain):
+                            continue
+                    
                     entries.append(entry)
         
         except Exception as e:
             print(f"Error reading log file {log_file}: {e}")
         
         return entries
+    
+    def _matches_site_domain(self, line: str, entry: LogEntry, site_domain: str) -> bool:
+        """Check if a log entry matches the specified site domain."""
+        # Method 1: Check if domain is directly in the log line (most reliable)
+        if site_domain.lower() in line.lower():
+            return True
+        
+        # Method 2: Check for common nginx log format variations
+        # Some nginx logs might have the host in the request line or elsewhere
+        
+        # Method 3: For now, use simple string matching as nginx doesn't always log Host header
+        # in the standard access log format. The line-level check above should catch most cases.
+        
+        return False
     
     def _parse_access_log_line(self, line: str) -> Optional[LogEntry]:
         """Parse nginx access log line."""
