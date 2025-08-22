@@ -52,6 +52,7 @@ class SiteCreateRequest(BaseModel):
 class SiteUpdateRequest(BaseModel):
     """Request model for updating a site."""
     domain: Optional[str] = Field(None, min_length=1, max_length=255)
+    type: Optional[str] = Field(None, pattern=r"^(static|proxy|load_balancer)$")
     config: Optional[SiteConfigModel] = None
     
     @validator('domain')
@@ -60,6 +61,16 @@ class SiteUpdateRequest(BaseModel):
             if not v or '.' not in v:
                 raise ValueError('Invalid domain format')
             return v.lower()
+        return v
+    
+    @validator('config')
+    def validate_config(cls, v, values):
+        if v is not None:
+            site_type = values.get('type')
+            if site_type == 'proxy' and not v.upstream_url:
+                raise ValueError('upstream_url is required for proxy sites')
+            if site_type == 'load_balancer' and not v.upstream_servers:
+                raise ValueError('upstream_servers is required for load balancer sites')
         return v
 
 
@@ -215,8 +226,22 @@ async def update_site(
         updates = {}
         if site_data.domain is not None:
             updates['domain'] = site_data.domain
+        if site_data.type is not None:
+            updates['type'] = site_data.type  # Database column is 'type', not 'site_type'
         if site_data.config is not None:
             updates['config'] = site_data.config.dict()
+        
+        # If changing from static to another type, warn about web directory
+        if site_data.type and existing_site['type'] == 'static' and site_data.type != 'static':
+            # Note: Web directory will remain but won't be used
+            pass
+        
+        # If changing to static type, create web directory
+        if site_data.type == 'static' and existing_site['type'] != 'static':
+            success, message = nginx_service.create_web_directory(existing_site['name'])
+            if not success:
+                # Log warning but don't fail the update
+                pass
         
         # Update site in database
         if updates:

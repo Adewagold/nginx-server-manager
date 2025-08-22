@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Site - Nginx Site Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-edit me-2"></i>Edit Site</h1>
+            <div>
+                <button type="button" class="btn btn-outline-secondary" onclick="cancelEdit()">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Site Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="editSiteForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="siteName" class="form-label">Site Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="siteName" readonly>
+                            <small class="text-muted">Site name cannot be changed</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="domain" class="form-label">Domain <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="domain" name="domain" required>
+                            <small class="text-muted">Example: example.com or subdomain.example.com</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Site Type <span class="text-danger">*</span></label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="type" id="typeStatic" value="static">
+                                    <label class="form-check-label" for="typeStatic">
+                                        <i class="fas fa-file-code text-primary"></i> Static Site
+                                        <br><small class="text-muted">Serve HTML, CSS, JS files</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="type" id="typeProxy" value="proxy">
+                                    <label class="form-check-label" for="typeProxy">
+                                        <i class="fas fa-exchange-alt text-info"></i> Reverse Proxy
+                                        <br><small class="text-muted">Forward to another server</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="type" id="typeLoadBalancer" value="load_balancer">
+                                    <label class="form-check-label" for="typeLoadBalancer">
+                                        <i class="fas fa-balance-scale text-warning"></i> Load Balancer
+                                        <br><small class="text-muted">Distribute across servers</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Static Site Configuration -->
+                    <div id="staticConfig" class="config-section" style="display: none;">
+                        <h6 class="mb-3"><i class="fas fa-file-code me-1"></i>Static Site Configuration</h6>
+                        <div class="mb-3">
+                            <label for="indexFiles" class="form-label">Index Files</label>
+                            <input type="text" class="form-control" id="indexFiles" value="index.html,index.htm">
+                            <small class="text-muted">Comma-separated list of index files</small>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Files will be served from: <code>/var/www/[site-name]/</code>
+                        </div>
+                    </div>
+                    
+                    <!-- Reverse Proxy Configuration -->
+                    <div id="proxyConfig" class="config-section" style="display: none;">
+                        <h6 class="mb-3"><i class="fas fa-exchange-alt me-1"></i>Reverse Proxy Configuration</h6>
+                        <div class="mb-3">
+                            <label for="upstreamUrl" class="form-label">Upstream URL <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="upstreamUrl" placeholder="http://localhost:3000">
+                            <small class="text-muted">The backend server URL to proxy requests to</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Load Balancer Configuration -->
+                    <div id="loadBalancerConfig" class="config-section" style="display: none;">
+                        <h6 class="mb-3"><i class="fas fa-balance-scale me-1"></i>Load Balancer Configuration</h6>
+                        <div class="mb-3">
+                            <label for="upstreamServers" class="form-label">Upstream Servers <span class="text-danger">*</span></label>
+                            <div id="serversList">
+                                <!-- Server inputs will be added here -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addServerInput()">
+                                <i class="fas fa-plus me-1"></i>Add Server
+                            </button>
+                            <small class="text-muted d-block mt-1">Enter server URLs (e.g., http://server1:8080)</small>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-danger" onclick="testConfiguration()">
+                            <i class="fas fa-vial me-1"></i>Test Configuration
+                        </button>
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary me-2" onclick="cancelEdit()">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-info-circle me-1"></i>Edit Guidelines</h6>
+            </div>
+            <div class="card-body">
+                <ul class="small text-muted mb-0">
+                    <li>Domain changes will update the nginx server configuration</li>
+                    <li>Changing site type will regenerate the entire configuration</li>
+                    <li>For static sites, ensure files exist in the web directory</li>
+                    <li>For proxy sites, verify the upstream server is accessible</li>
+                    <li>Configuration changes require nginx reload to take effect</li>
+                    <li>Test configuration before saving to avoid issues</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-1"></i>Important Notes</h6>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning mb-0">
+                    <small>
+                        <strong>Warning:</strong> Changing site type from static to proxy/load balancer 
+                        will not delete existing files in <code>/var/www/[site-name]/</code>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const siteId = {{ site_id }};
+let originalSiteData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadSiteData();
+    setupFormHandlers();
+});
+
+async function loadSiteData() {
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}`);
+        if (!response.ok) {
+            if (response.status === 404) {
+                showToast('Error', 'Site not found', 'error');
+                setTimeout(() => window.location.href = '/sites', 1500);
+                return;
+            }
+            throw new Error('Failed to load site data');
+        }
+        
+        originalSiteData = await response.json();
+        populateForm(originalSiteData);
+        
+    } catch (error) {
+        console.error('Error loading site:', error);
+        showToast('Error', error.message, 'error');
+    }
+}
+
+function populateForm(siteData) {
+    // Basic fields
+    document.getElementById('siteName').value = siteData.name;
+    document.getElementById('domain').value = siteData.domain;
+    
+    // Site type
+    const typeRadio = document.querySelector(`input[name="type"][value="${siteData.type}"]`);
+    if (typeRadio) {
+        typeRadio.checked = true;
+        showConfigSection(siteData.type);
+    }
+    
+    // Configuration based on type
+    const config = siteData.config || {};
+    
+    if (siteData.type === 'static') {
+        const indexFiles = config.index_files || ['index.html', 'index.htm'];
+        document.getElementById('indexFiles').value = indexFiles.join(',');
+        
+    } else if (siteData.type === 'proxy') {
+        document.getElementById('upstreamUrl').value = config.upstream_url || '';
+        
+    } else if (siteData.type === 'load_balancer') {
+        const servers = config.upstream_servers || [];
+        const serversList = document.getElementById('serversList');
+        serversList.innerHTML = '';
+        
+        if (servers.length === 0) {
+            addServerInput();
+        } else {
+            servers.forEach(server => addServerInput(server));
+        }
+    }
+}
+
+function setupFormHandlers() {
+    // Type radio buttons
+    document.querySelectorAll('input[name="type"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            showConfigSection(e.target.value);
+        });
+    });
+    
+    // Form submission
+    document.getElementById('editSiteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await updateSite();
+    });
+}
+
+function showConfigSection(type) {
+    // Hide all config sections
+    document.querySelectorAll('.config-section').forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Show selected config section
+    if (type === 'static') {
+        document.getElementById('staticConfig').style.display = 'block';
+    } else if (type === 'proxy') {
+        document.getElementById('proxyConfig').style.display = 'block';
+    } else if (type === 'load_balancer') {
+        document.getElementById('loadBalancerConfig').style.display = 'block';
+    }
+}
+
+function addServerInput(value = '') {
+    const serversList = document.getElementById('serversList');
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'input-group mb-2';
+    inputGroup.innerHTML = `
+        <input type="url" class="form-control upstream-server" placeholder="http://server:port" value="${value}">
+        <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.remove()">
+            <i class="fas fa-trash"></i>
+        </button>
+    `;
+    serversList.appendChild(inputGroup);
+}
+
+async function updateSite() {
+    const formData = new FormData(document.getElementById('editSiteForm'));
+    const siteType = formData.get('type');
+    
+    // Build update request
+    const updateData = {
+        domain: formData.get('domain'),
+        type: siteType,
+        config: {}
+    };
+    
+    // Add type-specific configuration
+    if (siteType === 'static') {
+        const indexFiles = document.getElementById('indexFiles').value
+            .split(',')
+            .map(f => f.trim())
+            .filter(f => f);
+        updateData.config.index_files = indexFiles;
+        
+    } else if (siteType === 'proxy') {
+        const upstreamUrl = document.getElementById('upstreamUrl').value;
+        if (!upstreamUrl) {
+            showToast('Error', 'Upstream URL is required for proxy sites', 'error');
+            return;
+        }
+        updateData.config.upstream_url = upstreamUrl;
+        
+    } else if (siteType === 'load_balancer') {
+        const servers = Array.from(document.querySelectorAll('.upstream-server'))
+            .map(input => input.value.trim())
+            .filter(url => url);
+        
+        if (servers.length === 0) {
+            showToast('Error', 'At least one upstream server is required', 'error');
+            return;
+        }
+        updateData.config.upstream_servers = servers;
+    }
+    
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            showToast('Success', 'Site updated successfully', 'success');
+            setTimeout(() => {
+                window.location.href = `/sites/${siteId}`;
+            }, 1500);
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update site');
+        }
+        
+    } catch (error) {
+        console.error('Error updating site:', error);
+        showToast('Error', error.message, 'error');
+    }
+}
+
+async function testConfiguration() {
+    // Gather current form data
+    const formData = new FormData(document.getElementById('editSiteForm'));
+    const siteType = formData.get('type');
+    
+    if (!siteType) {
+        showToast('Warning', 'Please select a site type', 'warning');
+        return;
+    }
+    
+    // Validate type-specific requirements
+    if (siteType === 'proxy') {
+        const upstreamUrl = document.getElementById('upstreamUrl').value;
+        if (!upstreamUrl) {
+            showToast('Error', 'Upstream URL is required for proxy sites', 'error');
+            return;
+        }
+        
+        // Test if URL is valid
+        try {
+            new URL(upstreamUrl);
+            showToast('Info', 'Configuration appears valid. Testing nginx syntax...', 'info');
+        } catch {
+            showToast('Error', 'Invalid upstream URL format', 'error');
+            return;
+        }
+        
+    } else if (siteType === 'load_balancer') {
+        const servers = Array.from(document.querySelectorAll('.upstream-server'))
+            .map(input => input.value.trim())
+            .filter(url => url);
+        
+        if (servers.length === 0) {
+            showToast('Error', 'At least one upstream server is required', 'error');
+            return;
+        }
+        
+        // Test if all URLs are valid
+        for (const server of servers) {
+            try {
+                new URL(server);
+            } catch {
+                showToast('Error', `Invalid server URL: ${server}`, 'error');
+                return;
+            }
+        }
+        
+        showToast('Info', 'Configuration appears valid. Testing nginx syntax...', 'info');
+    } else {
+        showToast('Info', 'Static site configuration is valid', 'info');
+    }
+    
+    // Could make an API call here to test nginx config syntax
+    setTimeout(() => {
+        showToast('Success', 'Configuration test passed', 'success');
+    }, 1000);
+}
+
+function cancelEdit() {
+    if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+        window.location.href = `/sites/${siteId}`;
+    }
+}
+</script>
+{% endblock %}

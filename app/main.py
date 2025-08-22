@@ -216,6 +216,15 @@ async def site_detail_page(request: Request, site_id: int):
     })
 
 
+@app.get("/sites/{site_id}/edit", response_class=HTMLResponse)
+async def edit_site_page(request: Request, site_id: int):
+    """Edit site configuration page."""
+    return templates.TemplateResponse("edit_site.html", {
+        "request": request,
+        "site_id": site_id
+    })
+
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
