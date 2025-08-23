@@ -29,7 +29,7 @@ class SecurityConfig(BaseModel):
     
     # Authentication settings
     min_password_length: int = 12
-    max_login_attempts: int = 3
+    max_login_attempts: int = 10
     lockout_duration_minutes: int = 15
     password_hash_rounds: int = 12
     

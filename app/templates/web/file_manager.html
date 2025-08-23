@@ -74,10 +74,10 @@
                                 <thead>
                                     <tr>
                                         <th style="width: 40px;"></th>
-                                        <th>Name</th>
+                                        <th style="width: 40%;">Name</th>
                                         <th style="width: 100px;">Size</th>
                                         <th style="width: 150px;">Modified</th>
-                                        <th style="width: 120px;">Actions</th>
+                                        <th style="width: 240px; min-width: 240px;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="fileTableBody">
@@ -417,35 +417,37 @@ function getFileIcon(file) {
 
 // Create action buttons
 function createActionsButtons(file) {
-    let buttons = '';
+    let buttons = '<div class="btn-group btn-group-sm" role="group">';
     
     if (file.name === '..') {
         return '';
     }
     
     if (file.type === 'directory') {
-        buttons += `<button class="btn btn-sm btn-outline-primary me-1" onclick="navigateToPath('${file.relative_path}')" title="Open">
+        buttons += `<button class="btn btn-outline-primary" onclick="navigateToPath('${file.relative_path}')" title="Open">
                         <i class="fas fa-folder-open"></i>
                     </button>`;
     } else {
-        buttons += `<button class="btn btn-sm btn-outline-success me-1" onclick="downloadFile('${file.relative_path}')" title="Download">
+        buttons += `<button class="btn btn-outline-success" onclick="downloadFile('${file.relative_path}')" title="Download">
                         <i class="fas fa-download"></i>
                     </button>`;
         
         if (file.is_editable) {
-            buttons += `<button class="btn btn-sm btn-outline-info me-1" onclick="editFile('${file.relative_path}', '${file.name}')" title="Edit">
+            buttons += `<button class="btn btn-outline-info" onclick="editFile('${file.relative_path}', '${file.name}')" title="Edit">
                             <i class="fas fa-edit"></i>
                         </button>`;
         }
     }
     
-    buttons += `<button class="btn btn-sm btn-outline-warning me-1" onclick="showRenameModal('${file.relative_path}', '${file.name}')" title="Rename">
+    buttons += `<button class="btn btn-outline-warning" onclick="showRenameModal('${file.relative_path}', '${file.name}')" title="Rename">
                     <i class="fas fa-pen"></i>
                 </button>`;
     
-    buttons += `<button class="btn btn-sm btn-outline-danger" onclick="showDeleteModal('${file.relative_path}', '${file.name}')" title="Delete">
+    buttons += `<button class="btn btn-outline-danger" onclick="showDeleteModal('${file.relative_path}', '${file.name}')" title="Delete">
                     <i class="fas fa-trash"></i>
                 </button>`;
+    
+    buttons += '</div>';
     
     return buttons;
 }

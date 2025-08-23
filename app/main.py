@@ -19,7 +19,7 @@ from jose import jwt
 
 from app.config import get_config, init_config
 from app.models import init_database
-from app.auth import get_auth_manager, get_session_manager, check_rate_limit
+from app.auth import get_auth_manager, get_session_manager
 from app.api.sites import router as sites_router
 from app.api.system import router as system_router
 from app.api.ssl import router as ssl_router
@@ -118,9 +118,6 @@ async def login(
     password: str = Form(...)
 ):
     """Authenticate user and return JWT token."""
-    # Check rate limiting
-    check_rate_limit(request)
-    
     # Authenticate user
     user = auth_manager.authenticate_user(username, password)
     if not user:

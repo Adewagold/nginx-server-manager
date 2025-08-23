@@ -418,24 +418,32 @@ class SSLService:
         return expiring_sites
     
     def setup_auto_renewal(self) -> Tuple[bool, str]:
-        """Setup automatic certificate renewal using systemd timer."""
+        """Setup automatic certificate renewal using crontab."""
         try:
-            # Create systemd service file
-            service_content = f"""[Unit]
+            # Check if we have write permissions to systemd directory
+            systemd_dir = "/etc/systemd/system"
+            if not os.access(systemd_dir, os.W_OK):
+                # Fall back to crontab-based renewal
+                return self._setup_cron_renewal()
+            
+            # Try to create systemd service and timer
+            try:
+                # Create systemd service file
+                service_content = f"""[Unit]
 Description=Let's Encrypt certificate renewal
 After=network.target
 
 [Service]
 Type=oneshot
-ExecStart={self.certbot_path} renew --quiet --config-dir {self.config_dir} --work-dir {self.work_dir} --logs-dir {self.logs_dir} --post-hook "systemctl reload nginx"
+ExecStart={self.certbot_path} renew --quiet --config-dir {self.config_dir} --work-dir {self.work_dir} --logs-dir {self.logs_dir} --post-hook "sudo systemctl reload nginx"
 """
-            
-            service_path = "/etc/systemd/system/certbot-renewal.service"
-            with open(service_path, 'w') as f:
-                f.write(service_content)
-            
-            # Create systemd timer file
-            timer_content = """[Unit]
+                
+                service_path = "/etc/systemd/system/certbot-renewal.service"
+                with open(service_path, 'w') as f:
+                    f.write(service_content)
+                
+                # Create systemd timer file
+                timer_content = """[Unit]
 Description=Run certbot renewal twice daily
 Requires=certbot-renewal.service
 
@@ -447,53 +455,135 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 """
-            
-            timer_path = "/etc/systemd/system/certbot-renewal.timer"
-            with open(timer_path, 'w') as f:
-                f.write(timer_content)
-            
-            # Enable and start the timer
-            subprocess.run(["systemctl", "daemon-reload"], check=True)
-            subprocess.run(["systemctl", "enable", "certbot-renewal.timer"], check=True)
-            subprocess.run(["systemctl", "start", "certbot-renewal.timer"], check=True)
-            
-            return True, "Automatic renewal setup successfully"
+                
+                timer_path = "/etc/systemd/system/certbot-renewal.timer"
+                with open(timer_path, 'w') as f:
+                    f.write(timer_content)
+                
+                # Enable and start the timer
+                subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
+                subprocess.run(["sudo", "systemctl", "enable", "certbot-renewal.timer"], check=True)
+                subprocess.run(["sudo", "systemctl", "start", "certbot-renewal.timer"], check=True)
+                
+                return True, "Automatic renewal setup successfully using systemd"
+                
+            except (subprocess.CalledProcessError, OSError, PermissionError):
+                # Fall back to crontab if systemd setup fails
+                return self._setup_cron_renewal()
         
         except Exception as e:
             return False, f"Error setting up auto renewal: {str(e)}"
     
+    def _setup_cron_renewal(self) -> Tuple[bool, str]:
+        """Setup certificate renewal using crontab as fallback."""
+        try:
+            # Create renewal script in user directory
+            script_dir = os.path.expanduser("~/.nginx-manager")
+            os.makedirs(script_dir, exist_ok=True)
+            
+            script_path = os.path.join(script_dir, "renew-certs.sh")
+            script_content = f"""#!/bin/bash
+# Nginx Site Manager SSL Renewal Script
+{self.certbot_path} renew --quiet --config-dir {self.config_dir} --work-dir {self.work_dir} --logs-dir {self.logs_dir} --post-hook "sudo systemctl reload nginx" >> {script_dir}/renewal.log 2>&1
+"""
+            
+            with open(script_path, 'w') as f:
+                f.write(script_content)
+            
+            os.chmod(script_path, 0o755)
+            
+            # Add cron job
+            import crontab
+            from crontab import CronTab
+            
+            # Get current user's crontab
+            cron = CronTab(user=True)
+            
+            # Remove existing renewal jobs
+            cron.remove_all(comment='nginx-manager-ssl-renewal')
+            
+            # Add new renewal job (run twice daily at 2 AM and 2 PM)
+            job = cron.new(command=script_path, comment='nginx-manager-ssl-renewal')
+            job.hour.on(2, 14)
+            job.minute.on(0)
+            
+            cron.write()
+            
+            return True, "Automatic renewal setup successfully using crontab. Certificates will be renewed twice daily at 2:00 AM and 2:00 PM."
+        
+        except ImportError:
+            # python-crontab not available, provide manual instructions
+            return False, ("Automatic renewal requires 'python-crontab' package or root privileges for systemd. "
+                          "Please install with: pip install python-crontab, or run the installer as root.")
+        except Exception as e:
+            return False, f"Error setting up cron renewal: {str(e)}"
+    
     def get_renewal_status(self) -> Dict[str, Any]:
         """Get status of automatic renewal setup."""
         try:
-            # Check if timer is active
-            result = subprocess.run(
-                ["systemctl", "is-active", "certbot-renewal.timer"],
-                capture_output=True, text=True
-            )
-            
-            timer_active = result.returncode == 0 and result.stdout.strip() == "active"
-            
-            # Get next run time
-            next_run = None
-            if timer_active:
+            # First check for systemd timer
+            try:
                 result = subprocess.run(
-                    ["systemctl", "list-timers", "certbot-renewal.timer", "--no-pager"],
+                    ["systemctl", "is-active", "certbot-renewal.timer"],
                     capture_output=True, text=True
                 )
                 
-                if result.returncode == 0:
-                    lines = result.stdout.strip().split('\n')
-                    for line in lines:
-                        if "certbot-renewal.timer" in line:
-                            parts = line.split()
-                            if len(parts) >= 2:
-                                next_run = f"{parts[0]} {parts[1]}"
-                            break
+                timer_active = result.returncode == 0 and result.stdout.strip() == "active"
+                
+                if timer_active:
+                    # Get next run time for systemd
+                    next_run = None
+                    try:
+                        result = subprocess.run(
+                            ["systemctl", "list-timers", "certbot-renewal.timer", "--no-pager"],
+                            capture_output=True, text=True
+                        )
+                        
+                        if result.returncode == 0:
+                            lines = result.stdout.strip().split('\n')
+                            for line in lines:
+                                if "certbot-renewal.timer" in line:
+                                    parts = line.split()
+                                    if len(parts) >= 2:
+                                        next_run = f"{parts[0]} {parts[1]}"
+                                    break
+                    except:
+                        pass
+                    
+                    return {
+                        "auto_renewal_enabled": True,
+                        "renewal_method": "systemd",
+                        "next_run": next_run,
+                        "service_status": "active"
+                    }
+            except:
+                pass
             
+            # Check for cron-based renewal
+            try:
+                from crontab import CronTab
+                cron = CronTab(user=True)
+                renewal_jobs = [job for job in cron if job.comment == 'nginx-manager-ssl-renewal']
+                
+                if renewal_jobs:
+                    job = renewal_jobs[0]
+                    return {
+                        "auto_renewal_enabled": True,
+                        "renewal_method": "crontab",
+                        "schedule": f"Daily at {job.hour} hours, {job.minute} minutes",
+                        "service_status": "active"
+                    }
+            except ImportError:
+                pass
+            except Exception:
+                pass
+            
+            # No automatic renewal found
             return {
-                "auto_renewal_enabled": timer_active,
-                "next_run": next_run,
-                "service_status": "active" if timer_active else "inactive"
+                "auto_renewal_enabled": False,
+                "renewal_method": "none",
+                "next_run": None,
+                "service_status": "inactive"
             }
         
         except Exception as e:
