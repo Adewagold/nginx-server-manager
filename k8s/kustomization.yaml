@@ -1,0 +1,74 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: nginx-manager
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Namespace for all resources
+namespace: nginx-manager
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: nginx-manager
+  app.kubernetes.io/instance: nginx-manager
+  app.kubernetes.io/version: "1.0.0"
+  app.kubernetes.io/part-of: nginx-manager
+  app.kubernetes.io/managed-by: kustomize
+
+# Resources to include
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - secret.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+# Images to customize
+images:
+  - name: nginx-manager
+    newTag: "1.0.0"
+
+# ConfigMap generator (alternative to configmap.yaml)
+# configMapGenerator:
+#   - name: nginx-manager-config
+#     files:
+#       - config.yaml
+
+# Secret generator (alternative to secret.yaml)
+# secretGenerator:
+#   - name: nginx-manager-secrets
+#     literals:
+#       - SECRET_KEY=your-secret-key
+#       - ADMIN_USERNAME=admin
+#       - ADMIN_PASSWORD=your-password
+
+# Patches for customization
+patches:
+  # Resource limits patch
+  - target:
+      kind: Deployment
+      name: nginx-manager
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 1000m
+
+# Replicas (can be overridden per environment)
+replicas:
+  - name: nginx-manager
+    count: 1
+
+# Name prefix for resources
+# namePrefix: prod-
+
+# Name suffix for resources
+# nameSuffix: -v1

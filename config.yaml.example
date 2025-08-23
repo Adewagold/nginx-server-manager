@@ -1,25 +1,29 @@
 # Nginx Site Manager Configuration
 # Copy this file to config.yaml and customize for your environment
+# 
+# SECURITY WARNING: Change all default credentials and keys before production use!
 
 app:
   # Application server settings
-  host: "127.0.0.1"
+  host: "0.0.0.0"  # Use 127.0.0.1 for localhost only
   port: 8080
-  debug: false
+  debug: false  # NEVER enable in production
   
-  # Secret key for JWT tokens - CHANGE THIS IN PRODUCTION
-  secret_key: "your-very-secure-secret-key-change-this-in-production"
+  # Secret key for JWT tokens - MUST BE CHANGED IN PRODUCTION
+  # Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+  secret_key: "CHANGE-THIS-TO-A-SECURE-32-PLUS-CHARACTER-SECRET-KEY-WITH-SPECIAL-CHARS!"
   
-  # JWT token expiration time (in minutes)
-  access_token_expire_minutes: 1440  # 24 hours
+  # JWT token expiration time (in minutes) - Reduced for better security
+  access_token_expire_minutes: 30
 
-# Administrator credentials
+# Administrator credentials - CHANGE THESE IMMEDIATELY
 admin:
-  # Default admin username
+  # Admin username - Use something other than "admin"
   username: "admin"
   
-  # Default admin password - CHANGE THIS IMMEDIATELY
-  password: "admin123"
+  # Admin password - Use a strong password with 12+ characters
+  # Include: uppercase, lowercase, numbers, special characters
+  password: "CHANGE-THIS-TO-A-STRONG-PASSWORD!"
 
 # System paths configuration
 paths:
@@ -86,18 +90,87 @@ ssl:
   # Automatic certificate renewal
   auto_renew: true
 
-# Security settings
+# Enhanced Security settings
 security:
-  # Rate limiting (requests per minute)
-  rate_limit: 60
+  # Authentication settings
+  min_password_length: 12
+  max_login_attempts: 3
+  lockout_duration_minutes: 15
+  password_hash_rounds: 12
   
-  # CORS settings
+  # Session management
+  session_timeout: 30  # Minutes - Reduced for better security
+  max_concurrent_sessions: 3
+  
+  # Rate limiting
+  rate_limit: 30  # Requests per minute - Reduced to prevent abuse
+  burst_limit: 10
+  
+  # CORS settings - Restrict to your domains only
   cors_origins:
     - "http://localhost:8080"
     - "http://127.0.0.1:8080"
+    # Add your production domain:
+    # - "https://yourdomain.com"
+  cors_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+  cors_headers:
+    - "Content-Type"
+    - "Authorization"
   
-  # Session timeout (in minutes)
-  session_timeout: 60
+  # File upload security
+  max_file_size_mb: 50  # Reduced from 100MB
+  max_files_per_upload: 10
+  allowed_file_extensions:
+    - ".html"
+    - ".htm"
+    - ".css"
+    - ".js"
+    - ".json"
+    - ".xml"
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".gif"
+    - ".svg"
+    - ".ico"
+    - ".pdf"
+    - ".txt"
+    - ".md"
+    - ".zip"
+  blocked_file_extensions:  # Security: Block dangerous file types
+    - ".php"
+    - ".asp"
+    - ".jsp"
+    - ".exe"
+    - ".bat"
+    - ".sh"
+    - ".py"
+    - ".rb"
+    - ".pl"
+    - ".cgi"
+    - ".scr"
+    - ".vbs"
+  
+  # IP security (enable for production environments)
+  ip_whitelist_enabled: false
+  allowed_ip_ranges:
+    - "127.0.0.1/32"      # Localhost
+    - "192.168.0.0/16"    # Private network
+    - "10.0.0.0/8"        # Private network
+    # Add your public IP for remote access:
+    # - "your.public.ip/32"
+  
+  # Content security
+  enable_content_scanning: true  # Scan uploaded files for threats
+  
+  # Security headers
+  enable_hsts: true
+  hsts_max_age: 31536000  # 1 year
+  enable_csrf_protection: true
 
 # Logging configuration
 logging:

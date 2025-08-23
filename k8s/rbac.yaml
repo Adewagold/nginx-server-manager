@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx-manager
+  namespace: nginx-manager
+  labels:
+    app.kubernetes.io/name: nginx-manager
+    app.kubernetes.io/instance: nginx-manager
+    app.kubernetes.io/component: rbac
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nginx-manager
+  namespace: nginx-manager
+  labels:
+    app.kubernetes.io/name: nginx-manager
+    app.kubernetes.io/instance: nginx-manager
+    app.kubernetes.io/component: rbac
+rules:
+# Allow reading configmaps and secrets for configuration
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+# Allow updating own service for health checks
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "patch"]
+# Allow reading pods for health monitoring
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+# Allow creating events for logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nginx-manager
+  namespace: nginx-manager
+  labels:
+    app.kubernetes.io/name: nginx-manager
+    app.kubernetes.io/instance: nginx-manager
+    app.kubernetes.io/component: rbac
+subjects:
+- kind: ServiceAccount
+  name: nginx-manager
+  namespace: nginx-manager
+roleRef:
+  kind: Role
+  name: nginx-manager
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,133 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-manager-config
+  namespace: nginx-manager
+  labels:
+    app.kubernetes.io/name: nginx-manager
+    app.kubernetes.io/instance: nginx-manager
+    app.kubernetes.io/component: config
+data:
+  config.yaml: |
+    app:
+      host: "0.0.0.0"
+      port: 8080
+      debug: false
+      secret_key: "CHANGE-THIS-SECRET-KEY-IN-PRODUCTION"
+      access_token_expire_minutes: 30
+
+    admin:
+      username: "admin"
+      password: "CHANGE-THIS-PASSWORD"
+
+    paths:
+      nginx_config_dir: "/etc/nginx/sites-available"
+      nginx_enabled_dir: "/etc/nginx/sites-enabled"
+      web_root: "/var/www"
+      ssl_cert_dir: "/home/nginx-manager/.letsencrypt/live"
+      data_dir: "/app/data"
+      log_dir: "/var/log/nginx-manager"
+
+    nginx:
+      test_command: "nginx -t"
+      reload_command: "nginx -s reload"
+      restart_command: "supervisorctl restart nginx"
+      status_command: "supervisorctl status nginx"
+
+    upload:
+      max_file_size: 52428800
+      allowed_extensions:
+        - ".html"
+        - ".htm"
+        - ".css"
+        - ".js"
+        - ".json"
+        - ".xml"
+        - ".png"
+        - ".jpg"
+        - ".jpeg"
+        - ".gif"
+        - ".svg"
+        - ".ico"
+        - ".pdf"
+        - ".txt"
+        - ".md"
+        - ".zip"
+
+    ssl:
+      email: "ssl@example.com"
+      staging: false
+      auto_renew: true
+
+    security:
+      min_password_length: 12
+      max_login_attempts: 3
+      lockout_duration_minutes: 15
+      password_hash_rounds: 12
+      session_timeout: 30
+      max_concurrent_sessions: 3
+      rate_limit: 30
+      burst_limit: 10
+      cors_origins:
+        - "http://localhost:8080"
+        - "http://127.0.0.1:8080"
+      cors_methods:
+        - "GET"
+        - "POST"
+        - "PUT"
+        - "DELETE"
+      cors_headers:
+        - "Content-Type"
+        - "Authorization"
+      max_file_size_mb: 50
+      max_files_per_upload: 10
+      allowed_file_extensions:
+        - ".html"
+        - ".htm"
+        - ".css"
+        - ".js"
+        - ".json"
+        - ".xml"
+        - ".png"
+        - ".jpg"
+        - ".jpeg"
+        - ".gif"
+        - ".svg"
+        - ".ico"
+        - ".pdf"
+        - ".txt"
+        - ".md"
+        - ".zip"
+      blocked_file_extensions:
+        - ".php"
+        - ".asp"
+        - ".jsp"
+        - ".exe"
+        - ".bat"
+        - ".sh"
+        - ".py"
+        - ".rb"
+        - ".pl"
+        - ".cgi"
+        - ".scr"
+        - ".vbs"
+      ip_whitelist_enabled: false
+      allowed_ip_ranges:
+        - "127.0.0.1/32"
+        - "192.168.0.0/16"
+        - "10.0.0.0/8"
+      enable_content_scanning: true
+      enable_hsts: true
+      hsts_max_age: 31536000
+      enable_csrf_protection: true
+
+    logging:
+      level: "INFO"
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      file: "/var/log/nginx-manager/app.log"
+
+    database:
+      url: "sqlite:///./data/sites.db"
+      pool_size: 10
+      max_overflow: 20

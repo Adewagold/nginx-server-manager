@@ -1,0 +1,208 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-manager
+  namespace: nginx-manager
+  labels:
+    app.kubernetes.io/name: nginx-manager
+    app.kubernetes.io/instance: nginx-manager
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: application
+    app.kubernetes.io/part-of: nginx-manager
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  replicas: 1  # Single replica due to SQLite database
+  strategy:
+    type: Recreate  # Required for persistent volume
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nginx-manager
+      app.kubernetes.io/instance: nginx-manager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nginx-manager
+        app.kubernetes.io/instance: nginx-manager
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: application
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: nginx-manager
+      securityContext:
+        runAsNonRoot: false  # Needs root for nginx
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 33  # www-data group
+      containers:
+      - name: nginx-manager
+        image: nginx-manager:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: https
+          containerPort: 443
+          protocol: TCP
+        - name: manager
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: NGINX_MANAGER_HOST
+          value: "0.0.0.0"
+        - name: NGINX_MANAGER_PORT
+          value: "8080"
+        - name: NGINX_MANAGER_DEBUG
+          value: "false"
+        - name: TZ
+          value: "UTC"
+        - name: APP_ENV
+          value: "production"
+        
+        # Environment variables from secrets
+        - name: NGINX_MANAGER_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nginx-manager-secrets
+              key: SECRET_KEY
+        - name: NGINX_MANAGER_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: nginx-manager-secrets
+              key: ADMIN_USERNAME
+        - name: NGINX_MANAGER_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nginx-manager-secrets
+              key: ADMIN_PASSWORD
+        - name: NGINX_MANAGER_ADMIN_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: nginx-manager-secrets
+              key: ADMIN_EMAIL
+        - name: NGINX_MANAGER_SSL_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: nginx-manager-secrets
+              key: SSL_EMAIL
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: manager
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: manager
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Startup probe for slow initialization
+        startupProbe:
+          httpGet:
+            path: /api/health
+            port: manager
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 10
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        # Volume mounts
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        - name: web
+          mountPath: /var/www
+        - name: ssl
+          mountPath: /home/nginx-manager/.letsencrypt
+        - name: nginx-sites
+          mountPath: /etc/nginx/sites-available
+        - name: logs
+          mountPath: /var/log/nginx-manager
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+          readOnly: true
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: true  # Required for nginx
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            - CHOWN
+            - DAC_OVERRIDE
+            - SETGID
+            - SETUID
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false  # Needs write access
+      
+      # Volumes
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: nginx-manager-data
+      - name: web
+        persistentVolumeClaim:
+          claimName: nginx-manager-web
+      - name: ssl
+        persistentVolumeClaim:
+          claimName: nginx-manager-ssl
+      - name: nginx-sites
+        persistentVolumeClaim:
+          claimName: nginx-manager-sites
+      - name: logs
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: nginx-manager-config
+          items:
+          - key: config.yaml
+            path: config.yaml
+      
+      # Pod scheduling
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - nginx-manager
+              topologyKey: kubernetes.io/hostname
+      
+      # Tolerations for dedicated nodes (optional)
+      # tolerations:
+      # - key: "nginx-manager"
+      #   operator: "Equal"
+      #   value: "true"
+      #   effect: "NoSchedule"
+      
+      # Node selector for dedicated nodes (optional)
+      # nodeSelector:
+      #   nginx-manager: "true"

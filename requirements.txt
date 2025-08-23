@@ -1,12 +1,14 @@
 # FastAPI and ASGI server
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+gunicorn==21.2.0
 
 # Database (sqlite3 is part of Python standard library)
 
 # Authentication and security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
 python-multipart==0.0.6
 
 # Configuration and data handling

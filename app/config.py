@@ -62,10 +62,50 @@ class SSLConfig(BaseSettings):
 
 
 class SecurityConfig(BaseSettings):
-    """Security settings configuration."""
-    rate_limit: int = 60
+    """Enhanced security settings configuration."""
+    # Authentication settings
+    min_password_length: int = 12
+    max_login_attempts: int = 3
+    lockout_duration_minutes: int = 15
+    password_hash_rounds: int = 12
+    
+    # Session management
+    session_timeout: int = 30  # Reduced from 60 for better security
+    max_concurrent_sessions: int = 3
+    
+    # Rate limiting
+    rate_limit: int = 30  # Requests per minute (reduced)
+    burst_limit: int = 10
+    
+    # CORS settings
     cors_origins: List[str] = ["http://localhost:8080", "http://127.0.0.1:8080"]
-    session_timeout: int = 60
+    cors_methods: List[str] = ["GET", "POST", "PUT", "DELETE"]
+    cors_headers: List[str] = ["Content-Type", "Authorization"]
+    
+    # File upload security
+    max_file_size_mb: int = 50
+    max_files_per_upload: int = 10
+    allowed_file_extensions: List[str] = [
+        ".html", ".htm", ".css", ".js", ".json", ".xml",
+        ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+        ".pdf", ".txt", ".md", ".zip"
+    ]
+    blocked_file_extensions: List[str] = [
+        ".php", ".asp", ".jsp", ".exe", ".bat", ".sh",
+        ".py", ".rb", ".pl", ".cgi", ".scr", ".vbs"
+    ]
+    
+    # IP security
+    ip_whitelist_enabled: bool = False
+    allowed_ip_ranges: List[str] = ["127.0.0.1/32", "192.168.0.0/16", "10.0.0.0/8"]
+    
+    # Content security
+    enable_content_scanning: bool = True
+    
+    # Security headers
+    enable_hsts: bool = True
+    hsts_max_age: int = 31536000  # 1 year
+    enable_csrf_protection: bool = True
 
 
 class LoggingConfig(BaseSettings):
@@ -117,6 +157,7 @@ class Config:
     def validate(self) -> List[str]:
         """Validate configuration and return any errors."""
         errors = []
+        warnings = []
         
         # Check if required directories exist
         required_dirs = [
@@ -137,9 +178,68 @@ class Config:
         if len(self.app.secret_key) < 32:
             errors.append("secret_key must be at least 32 characters long")
         
+        # Check secret key complexity
+        if self.app.secret_key.isalnum():
+            warnings.append("secret_key should contain special characters for better security")
+        
         # Check if default credentials are still being used
-        if self.admin.username == "admin" and self.admin.password == "admin123":
-            errors.append("Default admin credentials detected. Please change them for security.")
+        if self.admin.username == "admin" and self.admin.password in ["admin123", "admin", "password"]:
+            errors.append("Default/weak admin credentials detected. Please use strong credentials.")
+        
+        # Validate admin password strength if not hashed
+        if not self.admin.password.startswith('$2b$'):
+            if len(self.admin.password) < self.security.min_password_length:
+                errors.append(f"Admin password must be at least {self.security.min_password_length} characters long")
+            
+            # Check password complexity
+            import re
+            if not re.search(r'[A-Z]', self.admin.password):
+                warnings.append("Admin password should contain uppercase letters")
+            if not re.search(r'[a-z]', self.admin.password):
+                warnings.append("Admin password should contain lowercase letters")
+            if not re.search(r'\d', self.admin.password):
+                warnings.append("Admin password should contain numbers")
+            if not re.search(r'[!@#$%^&*(),.?":{}|<>]', self.admin.password):
+                warnings.append("Admin password should contain special characters")
+        
+        # Security configuration validation
+        if self.security.session_timeout > 120:
+            warnings.append("Session timeout is very long, consider reducing for better security")
+        
+        if self.security.max_login_attempts > 5:
+            warnings.append("Max login attempts is high, consider reducing to prevent brute force")
+        
+        if self.security.rate_limit > 100:
+            warnings.append("Rate limit is very high, consider reducing to prevent abuse")
+        
+        # File upload security validation
+        dangerous_extensions = ['.php', '.asp', '.jsp', '.exe', '.bat', '.sh', '.py']
+        allowed_dangerous = [ext for ext in self.upload.allowed_extensions if ext in dangerous_extensions]
+        if allowed_dangerous:
+            errors.append(f"Dangerous file extensions allowed: {', '.join(allowed_dangerous)}")
+        
+        # Check file size limits
+        if self.upload.max_file_size > 1073741824:  # 1GB
+            warnings.append("Maximum file size is very large, consider reducing")
+        
+        # SSL configuration validation
+        if self.ssl.staging and os.getenv('PRODUCTION') == 'true':
+            warnings.append("SSL staging mode enabled in production environment")
+        
+        # Debug mode check
+        if self.app.debug and os.getenv('PRODUCTION') == 'true':
+            errors.append("Debug mode should not be enabled in production")
+        
+        # CORS configuration check
+        if '*' in self.security.cors_origins:
+            warnings.append("CORS allows all origins (*), consider restricting for security")
+        
+        # Log warnings
+        if warnings:
+            import logging
+            logger = logging.getLogger(__name__)
+            for warning in warnings:
+                logger.warning(f"Configuration warning: {warning}")
         
         return errors
     

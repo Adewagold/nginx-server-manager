@@ -1,270 +1,555 @@
 # Nginx Site Manager
 
-A web-based platform for managing nginx sites, SSL certificates, and configurations on Linux systems. Provides a simple interface for creating, managing, and monitoring nginx virtual hosts without requiring sudo access after initial setup.
+> **A modern, web-based nginx management platform for effortless site deployment, SSL certificate management, and file operations**
 
-## Features
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 
-- **Site Management**: Create, edit, delete, enable/disable nginx sites
-- **Multiple Site Types**: Static sites, reverse proxy, and load balancer configurations
-- **Web Interface**: Modern, responsive web UI for easy management
-- **API Access**: RESTful API for automation and integration
-- **Authentication**: JWT-based authentication with configurable credentials
-- **Configuration Templates**: Pre-built nginx configuration templates
-- **Real-time Status**: Monitor site status and nginx service health
-- **Security**: Input validation, rate limiting, and proper permission management
+## 🚀 Overview
 
-## Technology Stack
+Nginx Site Manager is a powerful, intuitive web interface that transforms nginx administration from complex command-line operations into simple point-and-click actions. Perfect for developers, system administrators, and anyone who wants to manage websites without touching the terminal.
 
-- **Backend**: Python FastAPI
-- **Database**: SQLite
-- **Frontend**: HTML/CSS/JavaScript with Bootstrap 5
-- **Authentication**: JWT tokens
-- **Templates**: Jinja2 for nginx configurations
+### ✨ Key Features
 
-## Quick Start
+- 🌐 **Complete Site Management** - Create, configure, and manage nginx sites with ease
+- 🔒 **Automatic SSL Certificates** - One-click Let's Encrypt SSL with auto-renewal
+- 📁 **File Management** - Built-in file browser, editor, and upload for static sites
+- 📊 **Real-time Monitoring** - Live logs, site status, and system health monitoring
+- 🎨 **Professional UI** - Clean, responsive interface built with Bootstrap 5
+- 🔐 **Secure by Design** - JWT authentication, input validation, and permission controls
+- 🚀 **Easy Deployment** - One-command installation with automated setup
 
-### 1. System Requirements
+## 📋 Table of Contents
 
-- Linux system (Ubuntu/Debian or CentOS/RHEL/Fedora)
-- Python 3.7+
-- nginx
-- sudo privileges for initial setup
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage Guide](#-usage-guide)
+- [API Documentation](#-api-documentation)
+- [Security](#-security)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-### 2. Installation
+## 🎯 Features
+
+### 🌐 Site Management
+- **Three Site Types**: Static sites, reverse proxies, and load balancers
+- **Visual Configuration**: Point-and-click configuration with real-time validation
+- **Enable/Disable Sites**: Toggle sites without deleting configurations
+- **Status Monitoring**: Real-time site health checks and performance metrics
+- **Configuration Templates**: Pre-built templates for common use cases
+
+### 🔒 SSL Certificate Management
+- **Let's Encrypt Integration**: Automatic certificate generation and renewal
+- **One-Click SSL**: Enable HTTPS with a single button click
+- **Certificate Monitoring**: Track expiry dates and renewal status
+- **Auto-Renewal**: Automatic renewal with systemd timers
+- **Staging Support**: Test certificates safely before production deployment
+- **User-Accessible Storage**: Certificates stored in user directory (no root required)
+
+### 📁 File Management (Static Sites)
+- **Built-in File Browser**: Navigate directories with breadcrumb navigation
+- **File Editor**: Edit HTML, CSS, JavaScript with syntax highlighting
+- **Drag-and-Drop Upload**: Upload single files or entire directories
+- **ZIP Extraction**: Bulk upload and extract ZIP archives automatically
+- **File Operations**: Create, rename, delete, move, and download files
+- **Security**: Path validation, file type restrictions, and size limits
+
+### 📊 Advanced Monitoring
+- **Real-time Log Viewer**: Filter and search nginx logs in real-time
+- **System Status**: Monitor nginx service health and configuration
+- **Site Status**: Individual site health checks and metrics
+- **SSL Dashboard**: Certificate expiry tracking and renewal status
+- **Error Handling**: Comprehensive error messages and troubleshooting
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Linux server (Ubuntu 18.04+, Debian 10+, CentOS 7+, Rocky Linux 8+)
+- Python 3.8 or higher
+- Nginx (will be installed if not present)
+- Sudo privileges for initial setup
+
+### One-Command Installation
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/your-username/nginx-manager.git
 cd nginx-manager
 
 # Run the installation script
 chmod +x install.sh
-sudo ./install.sh
+./install.sh
+
+# Start the service
+sudo systemctl start nginx-manager
+
+# Access the web interface
+# Open http://your-server-ip:8080 in your browser
+# Default login: admin / admin123
 ```
 
-The installation script will:
-- Install required system packages (nginx, python3, certbot)
-- Create a dedicated `nginx-manager` user
-- Set up proper directory permissions
-- Install Python dependencies
-- Create a systemd service
+That's it! Your nginx management interface is now running with:
+- ✅ Nginx installed and configured
+- ✅ SSL directories set up with proper permissions
+- ✅ Python dependencies installed in virtual environment
+- ✅ Systemd service configured for auto-startup
+- ✅ Security permissions properly configured
 
-### 3. Configuration
+## 📦 Installation
+
+### Automated Installation (Recommended)
+
+The installation script automatically:
+- Detects your OS and installs required packages
+- Sets up nginx with proper permissions
+- Installs Python dependencies in a virtual environment
+- Configures SSL certificate directories for user access
+- Creates a systemd service for auto-startup
+- Sets up proper file permissions and security
+- Tests SSL directory permissions
 
 ```bash
-# Copy and edit the configuration file
-sudo cp config.yaml.example /opt/nginx-manager/config.yaml
-sudo nano /opt/nginx-manager/config.yaml
+git clone https://github.com/your-username/nginx-manager.git
+cd nginx-manager
+chmod +x install.sh
+./install.sh
 ```
 
-**Important**: Change the default admin credentials and secret key:
+### Manual Installation
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
+1. **Install Dependencies**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt update
+   sudo apt install -y nginx python3 python3-pip python3-venv certbot python3-certbot-nginx
+
+   # CentOS/Rocky Linux/AlmaLinux
+   sudo yum install -y nginx python3 python3-pip certbot python3-certbot-nginx
+   ```
+
+2. **Clone and Setup**
+   ```bash
+   git clone https://github.com/your-username/nginx-manager.git
+   cd nginx-manager
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+3. **Setup SSL Directories**
+   ```bash
+   mkdir -p ~/.letsencrypt/{live,work,logs,renewal}
+   sudo chown -R $(whoami):www-data ~/.letsencrypt
+   sudo find ~/.letsencrypt -type d -exec chmod 755 {} \;
+   ```
+
+4. **Configuration**
+   ```bash
+   cp config.yaml.example config.yaml
+   # Edit config.yaml with your settings
+   ```
+
+5. **Initialize Database**
+   ```bash
+   python -c "from app.models import init_database; init_database()"
+   ```
+
+6. **Start the Application**
+   ```bash
+   ./venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
+   ```
+
+</details>
+
+## ⚙️ Configuration
+
+### Basic Configuration
+
+Edit `config.yaml` to customize your installation:
 
 ```yaml
 app:
-  secret_key: "your-very-secure-secret-key-change-this-in-production"
+  host: "0.0.0.0"
+  port: 8080
+  secret_key: "your-secret-key-here"
+  access_token_expire_minutes: 60
+  debug: false
 
 admin:
   username: "admin"
-  password: "your-secure-password"  # Change this!
-```
-
-### 4. Start the Service
-
-```bash
-# Start nginx if not already running
-sudo systemctl start nginx
-sudo systemctl enable nginx
-
-# Start the nginx-manager service
-sudo systemctl start nginx-manager
-sudo systemctl enable nginx-manager
-
-# Check service status
-sudo systemctl status nginx-manager
-```
-
-### 5. Access the Web Interface
-
-Open your web browser and navigate to:
-- **URL**: `http://your-server-ip:8080`
-- **Default Login**: `admin` / `admin123` (change immediately!)
-
-## Usage Guide
-
-### Creating Sites
-
-1. **Access the Web Interface**: Navigate to the sites page
-2. **Click "Create New Site"**
-3. **Choose Site Type**:
-   - **Static Site**: For HTML/CSS/JS files
-   - **Reverse Proxy**: Forward requests to a backend application
-   - **Load Balancer**: Distribute requests across multiple servers
-4. **Fill in Details**:
-   - Site name (internal identifier)
-   - Domain name
-   - Configuration options based on site type
-5. **Create and Enable**: Choose to create only or create and enable immediately
-
-### Site Types
-
-#### Static Sites
-- Serves files from `/var/www/[site-name]/`
-- Automatically creates directory structure
-- Supports custom index files
-- Includes security headers and caching rules
-
-#### Reverse Proxy
-- Forwards requests to a backend application
-- Configurable upstream URL
-- Includes proper proxy headers
-- Timeout and buffer settings
-
-#### Load Balancer
-- Distributes requests across multiple backend servers
-- Round-robin load balancing
-- Health check support
-- Automatic failover
-
-### Managing Sites
-
-- **Enable/Disable**: Toggle site availability
-- **View Configuration**: See generated nginx config
-- **Check Status**: Monitor site health
-- **Delete**: Remove site and configuration
-
-## API Documentation
-
-The platform provides a RESTful API for automation. Access the interactive documentation at:
-- **Swagger UI**: `http://your-server:8080/docs` (when debug mode is enabled)
-
-### Authentication
-
-All API requests require a JWT token obtained through login:
-
-```bash
-# Login and get token
-curl -X POST "http://your-server:8080/auth/login" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=your-password"
-
-# Use token in subsequent requests
-curl -X GET "http://your-server:8080/api/sites/" \
-  -H "Authorization: Bearer your-token-here"
-```
-
-### Key Endpoints
-
-- `POST /auth/login` - Authenticate and get token
-- `GET /api/sites/` - List all sites
-- `POST /api/sites/` - Create new site
-- `GET /api/sites/{id}` - Get site details
-- `PUT /api/sites/{id}` - Update site
-- `DELETE /api/sites/{id}` - Delete site
-- `POST /api/sites/{id}/enable` - Enable site
-- `POST /api/sites/{id}/disable` - Disable site
-- `GET /api/system/status` - System status
-- `POST /api/system/reload` - Reload nginx
-
-## Configuration Reference
-
-### Main Configuration (`config.yaml`)
-
-```yaml
-app:
-  host: "127.0.0.1"           # Bind address
-  port: 8080                  # Port number
-  debug: false                # Debug mode
-  secret_key: "change-this"   # JWT secret key
-  access_token_expire_minutes: 1440  # Token expiration
-
-admin:
-  username: "admin"           # Admin username
-  password: "secure-password" # Admin password
+  password: "your-secure-password"
 
 paths:
   nginx_config_dir: "/etc/nginx/sites-available"
   nginx_enabled_dir: "/etc/nginx/sites-enabled"
   web_root: "/var/www"
-  ssl_cert_dir: "/etc/letsencrypt/live"
-  data_dir: "./data"
-  log_dir: "/var/log/nginx"
 
-nginx:
-  test_command: "sudo nginx -t"
-  reload_command: "sudo systemctl reload nginx"
-  restart_command: "sudo systemctl restart nginx"
-  status_command: "sudo systemctl status nginx"
+security:
+  rate_limit: 5  # requests per minute
+  session_timeout: 30  # minutes
+  cors_origins: ["*"]
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 ```
 
-## Development
+### SSL Configuration
 
-### Running in Development Mode
+The application automatically configures SSL certificates using Let's Encrypt:
+- Certificates stored in `~/.letsencrypt/` for user accessibility
+- Auto-renewal configured with systemd timers
+- Staging server used by default for testing (remove `--staging` flag for production)
+- Proper permissions set for nginx to read user certificates
+
+## 📖 Usage Guide
+
+### Creating Your First Site
+
+1. **Access the Web Interface**
+   - Open `http://your-server:8080` in your browser
+   - Login with your admin credentials
+
+2. **Create a New Site**
+   - Click "New Site" button
+   - Choose site type (Static, Proxy, or Load Balancer)
+   - Configure domain, ports, and other settings
+   - Click "Create Site"
+
+3. **Enable the Site**
+   - Click the "Enable" button in the site list
+   - The site will be activated and nginx reloaded automatically
+
+4. **Add SSL Certificate**
+   - Click the SSL shield icon next to your site
+   - Enter your email for Let's Encrypt
+   - Certificate will be generated and configured automatically
+   - Auto-renewal will be set up
+
+5. **Manage Files (Static Sites)**
+   - Click the "Manage Files" folder icon
+   - Upload files via drag-and-drop
+   - Edit files directly in the browser with syntax highlighting
+   - Create folders and organize your content
+
+### Site Types Explained
+
+#### 🗂️ Static Sites
+Perfect for:
+- HTML/CSS/JavaScript websites
+- React/Vue/Angular build outputs
+- Documentation sites
+- Landing pages
+
+Features:
+- File management with built-in editor
+- Automatic caching for static assets
+- Security headers and optimizations
+- Custom error pages
+- ZIP upload and extraction
+
+#### 🔄 Reverse Proxy
+Perfect for:
+- Node.js applications
+- Python web apps (Django/Flask)
+- API backends
+- Microservices
+
+Features:
+- Health checks and failover
+- Request/response header modification
+- SSL termination
+- WebSocket support
+- Configurable timeouts
+
+#### ⚖️ Load Balancer
+Perfect for:
+- High-traffic applications
+- Multi-server deployments
+- Redundancy and scaling
+- Performance optimization
+
+Features:
+- Multiple load balancing algorithms
+- Health monitoring
+- Session persistence
+- Weighted distribution
+- Automatic failover
+
+### SSL Certificate Management
+
+#### Automatic Certificates
+1. Ensure your domain points to your server
+2. Click the SSL enable button for any site
+3. Enter your email address
+4. Certificate is generated and configured automatically
+5. Auto-renewal is set up with systemd timers
+
+#### Certificate Monitoring
+- View certificate expiry dates in the SSL dashboard
+- Get warnings for certificates expiring within 30 days
+- Monitor renewal status and history
+- Manual renewal options available
+
+### File Management Features
+
+#### File Operations
+- **Upload**: Drag files directly onto the upload area
+- **Edit**: Click any text file to edit with syntax highlighting
+- **Create**: New files and folders with optional templates
+- **Download**: Individual files or entire directories
+- **Move**: Drag and drop between folders
+- **Rename**: Click rename button and enter new name
+- **ZIP Extract**: Upload ZIP files for bulk content deployment
+
+#### Security Features
+- File type restrictions prevent dangerous uploads
+- Path validation prevents directory traversal attacks
+- Size limits prevent resource exhaustion
+- Permission controls limit access to site directories only
+
+### Real-time Log Monitoring
+
+- **Live Log Streaming**: Watch nginx logs in real-time
+- **Advanced Filtering**: Filter by log level, time range, or search terms
+- **Site-Specific Logs**: View logs for individual sites
+- **Download Logs**: Export filtered logs for analysis
+- **Error Highlighting**: Visual highlighting of errors and warnings
+
+## 🔌 API Documentation
+
+### Authentication
+
+All API endpoints require JWT authentication:
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Login to get token
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=admin123"
 
-# Copy configuration
-cp config.yaml.example config.yaml
-
-# Edit paths for development (use local directories)
-nano config.yaml
-
-# Run development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
+# Use token in subsequent requests
+curl -X GET http://localhost:8080/api/sites \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
+
+### Core Endpoints
+
+#### Sites Management
+```bash
+# List all sites
+GET /api/sites
+
+# Create new site
+POST /api/sites
+Content-Type: application/json
+{
+  "name": "example-site",
+  "domain": "example.com",
+  "type": "static",
+  "config": {}
+}
+
+# Get site details
+GET /api/sites/{id}
+
+# Update site
+PUT /api/sites/{id}
+
+# Delete site
+DELETE /api/sites/{id}
+
+# Enable/disable site
+POST /api/sites/{id}/enable
+POST /api/sites/{id}/disable
+```
+
+#### SSL Management
+```bash
+# Get SSL status
+GET /api/ssl/sites/{id}/status
+
+# Enable SSL
+POST /api/ssl/sites/{id}/enable
+Content-Type: application/json
+{
+  "email": "admin@example.com",
+  "force_regenerate": false
+}
+
+# Disable SSL
+POST /api/ssl/sites/{id}/disable
+
+# Renew certificate
+POST /api/ssl/sites/{id}/renew
+
+# List all certificates
+GET /api/ssl/certificates
+
+# Get expiring certificates
+GET /api/ssl/expiring
+```
+
+#### File Management
+```bash
+# List files in directory
+GET /api/files/sites/{id}/files?path=/
+
+# Upload files
+POST /api/files/sites/{id}/files/upload
+Content-Type: multipart/form-data
+
+# Get file content
+GET /api/files/sites/{id}/files/content?file_path=index.html
+
+# Update file content
+PUT /api/files/sites/{id}/files/content?file_path=index.html
+Content-Type: application/json
+{
+  "content": "<!DOCTYPE html>..."
+}
+
+# Delete file or directory
+DELETE /api/files/sites/{id}/files?file_path=old-file.html
+
+# Rename file or directory
+POST /api/files/sites/{id}/files/rename?file_path=old-name.html
+Content-Type: application/json
+{
+  "new_name": "new-name.html"
+}
+
+# Download file
+GET /api/files/sites/{id}/files/download?file_path=document.pdf
+```
+
+### Response Format
+
+Success responses:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "example-site",
+    "domain": "example.com",
+    "ssl_enabled": true
+  },
+  "message": "Operation completed successfully"
+}
+```
+
+Error responses:
+```json
+{
+  "detail": "Site not found"
+}
+```
+
+## 🔒 Security
+
+### Security Features
+
+- **Authentication**: JWT-based authentication with configurable expiry
+- **Authorization**: Role-based access control and permission validation
+- **Input Validation**: All inputs sanitized and validated
+- **Path Security**: Directory traversal protection for file operations
+- **Rate Limiting**: Configurable rate limits on API endpoints
+- **CSRF Protection**: Cross-site request forgery protection
+- **Secure Headers**: Security headers added to all responses
+- **File Upload Security**: File type validation and size limits
+- **SSL Management**: Secure certificate storage and management
+
+### Security Best Practices
+
+1. **Change Default Credentials**
+   ```yaml
+   # Edit config.yaml
+   admin:
+     username: "your-username"
+     password: "strong-password-here"
+   ```
+
+2. **Use Strong Secret Keys**
+   ```bash
+   # Generate a secure secret key
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   ```
+
+3. **Enable HTTPS**
+   - Always use SSL certificates in production
+   - Redirect HTTP to HTTPS
+   - Use strong cipher suites
+
+4. **Network Security**
+   - Run behind a reverse proxy (nginx/Apache)
+   - Use firewall rules to restrict access
+   - Consider VPN access for administration
+
+5. **Regular Updates**
+   - Keep the application updated
+   - Monitor security advisories
+   - Update SSL certificates before expiry
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+### Development Setup
+
+1. **Fork and Clone**
+   ```bash
+   git clone https://github.com/your-username/nginx-manager.git
+   cd nginx-manager
+   ```
+
+2. **Setup Development Environment**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+3. **Run Development Server**
+   ```bash
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
+   ```
 
 ### Project Structure
 
 ```
 nginx-manager/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI app entry point
-│   ├── config.py            # Configuration management
-│   ├── auth.py              # Authentication logic
-│   ├── models.py            # Database models
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── sites.py         # Site management endpoints
-│   ├── services/
-│   │   ├── __init__.py
-│   │   └── nginx_service.py # Nginx operations
-│   └── templates/
-│       ├── nginx/           # Nginx config templates
-│       └── web/             # HTML templates
-├── static/                  # CSS, JS, images
-│   ├── css/
-│   └── js/
-├── data/                    # SQLite database
-├── install.sh              # Installation script
-├── requirements.txt        # Python dependencies
-├── config.yaml.example    # Configuration template
-└── README.md              # This file
+│   ├── api/              # API endpoints
+│   │   ├── sites.py      # Site management
+│   │   ├── ssl.py        # SSL certificate management
+│   │   ├── files.py      # File management
+│   │   └── system.py     # System operations
+│   ├── services/         # Business logic
+│   │   ├── nginx_service.py    # Nginx operations
+│   │   ├── ssl_service.py      # SSL operations
+│   │   └── file_service.py     # File operations
+│   ├── templates/        # Templates
+│   │   ├── nginx/        # Nginx config templates
+│   │   └── web/          # HTML templates
+│   ├── models.py         # Database models
+│   ├── auth.py           # Authentication
+│   ├── config.py         # Configuration
+│   └── main.py           # Application entry point
+├── static/               # CSS, JavaScript, images
+├── data/                 # SQLite database and backups
+├── install.sh            # Installation script
+├── config.yaml.example  # Configuration template
+└── requirements.txt      # Python dependencies
 ```
 
-## Security Considerations
-
-### Initial Setup
-- Change default admin credentials immediately
-- Use a strong secret key for JWT tokens
-- Configure firewall to restrict access to port 8080
-- Consider using a reverse proxy (nginx) for SSL termination
-
-### Ongoing Security
-- Regularly update the system and dependencies
-- Monitor access logs
-- Use strong passwords
-- Enable rate limiting (configured by default)
-- Review nginx configurations before applying
-
-### File Permissions
-The installation script sets up proper permissions:
-- Application runs as `nginx-manager` user
-- Limited sudo access for nginx operations only
-- Web directories owned by `nginx-manager:www-data`
-
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Common Issues
 
@@ -282,54 +567,55 @@ sudo journalctl -u nginx-manager -f
 # 3. Verify nginx is installed and running
 ```
 
-#### Permission Errors
+#### SSL Certificate Issues
 ```bash
+# Check SSL directories
+ls -la ~/.letsencrypt/
+
+# Test permissions
+sudo -u www-data test -r ~/.letsencrypt/test_file
+
 # Fix permissions
-sudo chown -R nginx-manager:nginx-manager /opt/nginx-manager
-sudo chown -R nginx-manager:www-data /var/www
+sudo chown -R $(whoami):www-data ~/.letsencrypt
+sudo find ~/.letsencrypt -type d -exec chmod 755 {} \;
 ```
 
-#### Database Issues
+#### Permission Errors
 ```bash
-# Check database permissions
-ls -la /opt/nginx-manager/data/
+# Fix application permissions
+sudo chown -R $(whoami):www-data /var/www
 
-# Recreate database (will lose data!)
-sudo rm /opt/nginx-manager/data/sites.db
-sudo systemctl restart nginx-manager
+# Check nginx configuration permissions
+ls -la /etc/nginx/sites-available/
 ```
 
 ### Log Files
-- Application logs: `/var/log/nginx-manager/app.log`
-- Service logs: `sudo journalctl -u nginx-manager`
-- Nginx logs: `/var/log/nginx/`
+- **Application logs**: Check systemd journal with `sudo journalctl -u nginx-manager -f`
+- **Nginx logs**: `/var/log/nginx/error.log` and `/var/log/nginx/access.log`
+- **SSL logs**: `~/.letsencrypt/logs/letsencrypt.log`
 
-## Contributing
+## 📄 License
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## License
+## 🙏 Acknowledgments
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
+- [Bootstrap 5](https://getbootstrap.com/) - UI framework  
+- [Let's Encrypt](https://letsencrypt.org/) - Free SSL certificates
+- [Font Awesome](https://fontawesome.com/) - Icons
+- [SQLite](https://sqlite.org/) - Database engine
 
-## Support
+## 📞 Support
 
-For support and questions:
-- Check the troubleshooting section above
-- Review the logs for error messages
-- Open an issue on GitHub with detailed information about your problem
+- **Issues**: [GitHub Issues](https://github.com/your-username/nginx-manager/issues)
+- **Documentation**: Full documentation coming soon
+- **Community**: Join our discussions for tips and best practices
 
-## Roadmap
+---
 
-Future enhancements planned:
-- SSL certificate management with Let's Encrypt integration
-- File upload and management for static sites
-- Backup and restore functionality
-- Multi-server management
-- Advanced nginx configuration options
-- Monitoring and alerting
-- Docker container support
+**Made with ❤️ for the nginx community**
+
+> Transform your nginx management experience from complex command-line operations to simple point-and-click actions.
+
+**🎯 Perfect for**: Web developers, system administrators, DevOps engineers, and anyone who manages nginx sites but prefers visual interfaces over command-line operations.

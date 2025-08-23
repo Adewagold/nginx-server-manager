@@ -1,0 +1,104 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-manager
+  namespace: nginx-manager
+  labels:
+    app.kubernetes.io/name: nginx-manager
+    app.kubernetes.io/instance: nginx-manager
+    app.kubernetes.io/component: ingress
+  annotations:
+    # Ingress class
+    kubernetes.io/ingress.class: "nginx"
+    
+    # SSL and TLS settings
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options DENY;
+      add_header X-Content-Type-Options nosniff;
+      add_header X-XSS-Protection "1; mode=block";
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+      add_header Referrer-Policy "strict-origin-when-cross-origin";
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit-connections: "10"
+    nginx.ingress.kubernetes.io/rate-limit-requests-per-minute: "60"
+    
+    # Client body size
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+spec:
+  tls:
+  - hosts:
+    - nginx-manager.example.com
+    - "*.nginx-manager.example.com"  # For managed sites
+    secretName: nginx-manager-tls
+  rules:
+  - host: nginx-manager.example.com
+    http:
+      paths:
+      # Management interface
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-manager
+            port:
+              number: 8080
+  # Managed sites (wildcard)
+  - host: "*.nginx-manager.example.com"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-manager
+            port:
+              number: 80
+
+---
+# Alternative ingress for NGINX Ingress Controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-manager-sites
+  namespace: nginx-manager
+  labels:
+    app.kubernetes.io/name: nginx-manager
+    app.kubernetes.io/instance: nginx-manager
+    app.kubernetes.io/component: ingress-sites
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      # Custom nginx configuration for managed sites
+      real_ip_header X-Forwarded-For;
+      set_real_ip_from 10.0.0.0/8;
+      set_real_ip_from 172.16.0.0/12;
+      set_real_ip_from 192.168.0.0/16;
+spec:
+  tls:
+  - hosts:
+    - "*.sites.example.com"
+    secretName: nginx-manager-sites-tls
+  rules:
+  - host: "*.sites.example.com"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-manager
+            port:
+              number: 80
