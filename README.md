@@ -9,6 +9,7 @@
 ## 🚀 Overview
 
 Nginx Site Manager is a powerful, intuitive web interface that transforms nginx administration from complex command-line operations into simple point-and-click actions. Perfect for developers, system administrators, and anyone who wants to manage websites without touching the terminal.
+<img width="1868" height="972" alt="image" src="https://github.com/user-attachments/assets/8c2a5ad9-4eea-4fa7-8a75-ec366c75f7c6" />
 
 ![Main Dashboard](screenshots/dashboard.png)
 *Main dashboard showing site overview, system status, and management tools*
