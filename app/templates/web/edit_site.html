@@ -108,42 +108,71 @@
                         </div>
                     </div>
                     
-                    <!-- Static Site Configuration -->
-                    <div id="staticConfig" class="config-section" style="display: none;">
-                        <h6 class="mb-3"><i class="fas fa-file-code me-1"></i>Static Site Configuration</h6>
-                        <div class="mb-3">
-                            <label for="indexFiles" class="form-label">Index Files</label>
-                            <input type="text" class="form-control" id="indexFiles" value="index.html,index.htm">
-                            <small class="text-muted">Comma-separated list of index files</small>
-                        </div>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Files will be served from: <code>/var/www/[site-name]/</code>
-                        </div>
-                    </div>
-                    
-                    <!-- Reverse Proxy Configuration -->
-                    <div id="proxyConfig" class="config-section" style="display: none;">
-                        <h6 class="mb-3"><i class="fas fa-exchange-alt me-1"></i>Reverse Proxy Configuration</h6>
-                        <div class="mb-3">
-                            <label for="upstreamUrl" class="form-label">Upstream URL <span class="text-danger">*</span></label>
-                            <input type="url" class="form-control" id="upstreamUrl" placeholder="http://localhost:3000">
-                            <small class="text-muted">The backend server URL to proxy requests to</small>
-                        </div>
-                    </div>
-                    
-                    <!-- Load Balancer Configuration -->
-                    <div id="loadBalancerConfig" class="config-section" style="display: none;">
-                        <h6 class="mb-3"><i class="fas fa-balance-scale me-1"></i>Load Balancer Configuration</h6>
-                        <div class="mb-3">
-                            <label for="upstreamServers" class="form-label">Upstream Servers <span class="text-danger">*</span></label>
-                            <div id="serversList">
-                                <!-- Server inputs will be added here -->
+                    <!-- Dynamic Type-Specific Configuration -->
+                    <div id="typeSpecificConfig">
+                        <!-- Static Site Configuration -->
+                        <div id="staticConfig" class="config-section mt-4" style="display: none;">
+                            <div class="config-section-header">
+                                <h4 class="config-section-title">
+                                    <i class="fas fa-file-code me-2"></i>Static Site Settings
+                                </h4>
                             </div>
-                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addServerInput()">
-                                <i class="fas fa-plus me-1"></i>Add Server
-                            </button>
-                            <small class="text-muted d-block mt-1">Enter server URLs (e.g., http://server1:8080)</small>
+                            <div class="config-section-body">
+                                <div class="mb-3">
+                                    <label for="indexFiles" class="form-label">Index Files</label>
+                                    <input type="text" class="form-control" id="indexFiles" value="index.html,index.htm">
+                                    <small class="text-muted">Comma-separated list of index files (e.g., index.html, index.htm)</small>
+                                </div>
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Files will be served from: <code>/var/www/[site-name]/</code>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Reverse Proxy Configuration -->
+                        <div id="proxyConfig" class="config-section mt-4" style="display: none;">
+                            <div class="config-section-header">
+                                <h4 class="config-section-title">
+                                    <i class="fas fa-exchange-alt me-2"></i>Reverse Proxy Settings
+                                </h4>
+                            </div>
+                            <div class="config-section-body">
+                                <div class="mb-3">
+                                    <label for="upstreamUrl" class="form-label">Upstream URL <span class="text-danger">*</span></label>
+                                    <input type="url" class="form-control" id="upstreamUrl" placeholder="http://localhost:3000">
+                                    <small class="text-muted">The backend server URL to proxy requests to</small>
+                                </div>
+                                <div class="alert alert-warning mb-0">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Ensure the upstream server is accessible from this nginx instance
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Load Balancer Configuration -->
+                        <div id="loadBalancerConfig" class="config-section mt-4" style="display: none;">
+                            <div class="config-section-header">
+                                <h4 class="config-section-title">
+                                    <i class="fas fa-balance-scale me-2"></i>Load Balancer Settings
+                                </h4>
+                            </div>
+                            <div class="config-section-body">
+                                <div class="mb-3">
+                                    <label for="upstreamServers" class="form-label">Upstream Servers <span class="text-danger">*</span></label>
+                                    <div id="serversList">
+                                        <!-- Server inputs will be added here -->
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addServerInput()">
+                                        <i class="fas fa-plus me-2"></i>Add Server
+                                    </button>
+                                    <small class="text-muted d-block mt-1">Enter server URLs (e.g., http://server1:8080)</small>
+                                </div>
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Traffic will be distributed across all configured servers using round-robin
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -384,10 +413,10 @@ function setupFormHandlers() {
 }
 
 function showConfigSection(type) {
-    // Hide all config sections
-    document.querySelectorAll('.config-section').forEach(section => {
-        section.style.display = 'none';
-    });
+    // Hide all dynamic type-specific config sections
+    document.getElementById('staticConfig').style.display = 'none';
+    document.getElementById('proxyConfig').style.display = 'none';
+    document.getElementById('loadBalancerConfig').style.display = 'none';
     
     // Show selected config section
     if (type === 'static') {
