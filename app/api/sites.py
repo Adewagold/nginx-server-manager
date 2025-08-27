@@ -102,6 +102,7 @@ class SiteStatusResponse(BaseModel):
     enabled: bool
     nginx_config_exists: bool
     nginx_config_valid: bool
+    nginx_running: bool
     web_directory_exists: bool
 
 
@@ -445,6 +446,10 @@ async def get_site_status(
                 config_content = f.read()
             config_valid, _ = nginx_service.validate_config(config_content)
         
+        # Check if nginx service is running
+        nginx_status = nginx_service.get_nginx_status()
+        nginx_running = nginx_status.get("running", False)
+        
         # Check web directory (for static sites)
         web_dir_exists = False
         if site['type'] == 'static':
@@ -457,6 +462,7 @@ async def get_site_status(
             enabled=site['enabled'],
             nginx_config_exists=config_exists,
             nginx_config_valid=config_valid,
+            nginx_running=nginx_running,
             web_directory_exists=web_dir_exists
         )
     
