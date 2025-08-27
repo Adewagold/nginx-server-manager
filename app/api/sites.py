@@ -615,3 +615,89 @@ async def get_site_error_logs(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error reading site error logs: {str(e)}"
         )
+
+
+@router.post("/{site_id}/test", response_model=Dict[str, str])
+async def test_site(
+    site_id: int,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Test if a site is reachable and working correctly."""
+    import httpx
+    import time
+    
+    try:
+        # Check if site exists
+        site = site_model.get_by_id(site_id)
+        if not site:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Site not found"
+            )
+        
+        if not site['enabled']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot test disabled site"
+            )
+        
+        # Determine the URL to test
+        protocol = "https" if site['ssl_enabled'] else "http"
+        url = f"{protocol}://{site['domain']}"
+        
+        # Test the site
+        start_time = time.time()
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                response = await client.get(url)
+                response_time = time.time() - start_time
+            
+            # Determine test results
+            if response.status_code == 200:
+                message = f"Site is working correctly (HTTP {response.status_code})"
+            elif 200 <= response.status_code < 400:
+                message = f"Site responded with HTTP {response.status_code}"
+            elif 400 <= response.status_code < 500:
+                message = f"Site returned client error: HTTP {response.status_code}"
+            else:
+                message = f"Site returned server error: HTTP {response.status_code}"
+            
+            return {
+                "message": message,
+                "url": url,
+                "status_code": str(response.status_code),
+                "response_time": f"{response_time:.2f}s"
+            }
+            
+        except httpx.SSLError as e:
+            return {
+                "message": "SSL/TLS connection failed",
+                "url": url,
+                "error": "SSL certificate error or invalid SSL configuration"
+            }
+        except httpx.ConnectError as e:
+            return {
+                "message": "Connection failed",
+                "url": url,
+                "error": "Could not connect to the site. Check if nginx is running and the site is properly configured."
+            }
+        except httpx.TimeoutException as e:
+            return {
+                "message": "Request timed out",
+                "url": url,
+                "error": "Site did not respond within 10 seconds"
+            }
+        except httpx.RequestError as e:
+            return {
+                "message": "Test failed",
+                "url": url,
+                "error": str(e)
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error testing site: {str(e)}"
+        )
