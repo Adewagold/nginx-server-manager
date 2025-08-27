@@ -292,60 +292,6 @@
     </div>
     </form>
 </div>
-
-<style>
-.site-type-card {
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    background: white;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-}
-
-.site-type-card:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-    transform: translateY(-2px);
-}
-
-.site-type-card input[type="radio"] {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 2;
-}
-
-.site-type-card input[type="radio"]:checked + label {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
-}
-
-.site-type-card input[type="radio"]:checked + label .text-primary,
-.site-type-card input[type="radio"]:checked + label .text-info,
-.site-type-card input[type="radio"]:checked + label .text-warning {
-    color: white !important;
-}
-
-.site-type-card input[type="radio"]:checked + label .text-muted {
-    color: rgba(255, 255, 255, 0.9) !important;
-}
-
-.site-type-card .form-check-label {
-    cursor: pointer;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-}
-
-.config-section {
-    margin-bottom: 1.5rem;
-}
-
-.config-section:last-child {
-    margin-bottom: 0;
-}
-</style>
 {% endblock %}
 
 {% block scripts %}
