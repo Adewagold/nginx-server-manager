@@ -151,9 +151,10 @@
 <style>
     /* SSL Specific Styles */
     .ssl-site-card {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: none;
+        border-left: 3px solid transparent;
+        border-radius: 0.5rem;
         padding: 1.5rem;
         margin-bottom: 1rem;
         transition: all 0.3s ease;
@@ -161,8 +162,8 @@
     }
     
     .ssl-site-card:hover {
-        box-shadow: var(--shadow-lg);
-        border-color: var(--primary-color);
+        background: rgba(255, 255, 255, 0.08);
+        border-left-color: var(--primary-color);
         transform: translateX(4px);
     }
     
@@ -615,11 +616,9 @@ async function checkAutoRenewalStatus() {
             const statusEl = document.getElementById('autoRenewalStatus');
             
             if (data.enabled) {
-                statusEl.innerHTML = '<i class="fas fa-check"></i>';
-                statusEl.parentElement.parentElement.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                statusEl.innerHTML = '<i class="fas fa-check text-success"></i>';
             } else {
-                statusEl.innerHTML = '<i class="fas fa-times"></i>';
-                statusEl.parentElement.parentElement.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+                statusEl.innerHTML = '<i class="fas fa-times text-danger"></i>';
             }
         }
     } catch (error) {
