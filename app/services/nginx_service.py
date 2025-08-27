@@ -158,18 +158,42 @@ server {
         return template.render(**template_vars)
     
     def validate_config(self, config_content: str, temp_file: Optional[str] = None) -> Tuple[bool, str]:
-        """Validate nginx configuration."""
+        """Validate nginx configuration by creating a minimal test setup."""
         if temp_file is None:
             temp_file = f"/tmp/nginx_test_{os.getpid()}.conf"
         
+        temp_dir = f"/tmp/nginx_test_{os.getpid()}"
+        
         try:
-            # Write config to temporary file
+            # Create temporary directory structure
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            # Create minimal nginx.conf for testing
+            test_nginx_conf = f"""
+events {{
+    worker_connections 1024;
+}}
+
+http {{
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    
+    # Include the server block to test
+    include {temp_file};
+}}
+"""
+            
+            main_conf_file = os.path.join(temp_dir, "nginx.conf")
+            with open(main_conf_file, "w") as f:
+                f.write(test_nginx_conf)
+            
+            # Write the server block to temporary file
             with open(temp_file, "w") as f:
                 f.write(config_content)
             
-            # Test configuration using configured command
+            # Test configuration using the temporary main config
             result = subprocess.run(
-                self.config.nginx.test_command.split(),
+                ["sudo", "nginx", "-t", "-c", main_conf_file],
                 capture_output=True,
                 text=True
             )
@@ -183,9 +207,12 @@ server {
             return False, f"Error validating configuration: {str(e)}"
         
         finally:
-            # Clean up temporary file
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
+            # Clean up temporary files and directory
+            for file_path in [temp_file, main_conf_file if 'main_conf_file' in locals() else None]:
+                if file_path and os.path.exists(file_path):
+                    os.unlink(file_path)
+            if os.path.exists(temp_dir):
+                os.rmdir(temp_dir)
     
     def save_config(self, site_id: int, config_content: str) -> Tuple[bool, str]:
         """Save nginx configuration to sites-available."""
