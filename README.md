@@ -10,6 +10,9 @@
 
 Nginx Site Manager is a powerful, intuitive web interface that transforms nginx administration from complex command-line operations into simple point-and-click actions. Perfect for developers, system administrators, and anyone who wants to manage websites without touching the terminal.
 
+![Main Dashboard](screenshots/dashboard.png)
+*Main dashboard showing site overview, system status, and management tools*
+
 ### ✨ Key Features
 
 - 🌐 **Complete Site Management** - Create, configure, and manage nginx sites with ease
@@ -41,6 +44,9 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **Status Monitoring**: Real-time site health checks and performance metrics
 - **Configuration Templates**: Pre-built templates for common use cases
 
+![Site Management](screenshots/sites-overview.png)
+*Site management interface with status indicators and quick actions*
+
 ### 🔒 SSL Certificate Management
 - **Let's Encrypt Integration**: Automatic certificate generation and renewal
 - **One-Click SSL**: Enable HTTPS with a single button click
@@ -49,6 +55,9 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **Staging Support**: Test certificates safely before production deployment
 - **User-Accessible Storage**: Certificates stored in user directory (no root required)
 
+![SSL Management](screenshots/ssl-dashboard.png)
+*SSL certificate dashboard with expiry tracking and auto-renewal status*
+
 ### 📁 File Management (Static Sites)
 - **Built-in File Browser**: Navigate directories with breadcrumb navigation
 - **File Editor**: Edit HTML, CSS, JavaScript with syntax highlighting
@@ -56,6 +65,9 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **ZIP Extraction**: Bulk upload and extract ZIP archives automatically
 - **File Operations**: Create, rename, delete, move, and download files
 - **Security**: Path validation, file type restrictions, and size limits
+
+![File Management](screenshots/file-manager.png)
+*Built-in file manager with drag-and-drop upload and inline editing*
 
 ### 📊 Advanced Monitoring
 - **Real-time Log Viewer**: Filter and search nginx logs in real-time
@@ -97,6 +109,9 @@ That's it! Your nginx management interface is now running with:
 - ✅ Python dependencies installed in virtual environment
 - ✅ Systemd service configured for auto-startup
 - ✅ Security permissions properly configured
+
+![Login Screen](screenshots/login.png)
+*Clean, professional login interface*
 
 ## 📦 Installation
 
@@ -222,6 +237,9 @@ The application automatically configures SSL certificates using Let's Encrypt:
    - Configure domain, ports, and other settings
    - Click "Create Site"
 
+![Site Creation](screenshots/create-site.png)
+*Site creation form with real-time configuration validation*
+
 3. **Enable the Site**
    - Click the "Enable" button in the site list
    - The site will be activated and nginx reloaded automatically
@@ -237,6 +255,9 @@ The application automatically configures SSL certificates using Let's Encrypt:
    - Upload files via drag-and-drop
    - Edit files directly in the browser with syntax highlighting
    - Create folders and organize your content
+
+![Site Configuration](screenshots/site-detail.png)
+*Site configuration overview with status monitoring and quick actions*
 
 ### Site Types Explained
 
@@ -321,6 +342,9 @@ Features:
 - **Site-Specific Logs**: View logs for individual sites
 - **Download Logs**: Export filtered logs for analysis
 - **Error Highlighting**: Visual highlighting of errors and warnings
+
+![Log Monitoring](screenshots/logs.png)
+*Real-time log viewer with filtering and search capabilities*
 
 ## 🔌 API Documentation
 
