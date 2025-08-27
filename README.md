@@ -46,6 +46,8 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **Configuration Templates**: Pre-built templates for common use cases
 
 ![Site Management](https://github.com/user-attachments/assets/700ff5e5-c37f-4fe0-a4b7-cf35699eac1a)
+<img width="1775" height="1030" alt="image" src="https://github.com/user-attachments/assets/674a1a43-b589-4f1a-9fda-8faf7c7922e7" />
+
 *Site management interface with status indicators and quick actions*
 
 ### 🔒 SSL Certificate Management
@@ -81,6 +83,7 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **Site Status**: Individual site health checks and metrics
 - **SSL Dashboard**: Certificate expiry tracking and renewal status
 - **Error Handling**: Comprehensive error messages and troubleshooting
+<img width="1361" height="1003" alt="image" src="https://github.com/user-attachments/assets/733a956e-7085-41ca-b8ed-a1690f0e5801" />
 
 ## 🚀 Quick Start
 
