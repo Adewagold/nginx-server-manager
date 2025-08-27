@@ -3,136 +3,178 @@
 {% block title %}Dashboard - Nginx Site Manager{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h1>
-            <div>
-                <button class="btn btn-outline-primary" onclick="refreshStats()">
-                    <i class="fas fa-refresh me-1"></i>Refresh
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="dashboard-title">
+                    Welcome back, Admin
+                </h1>
+                <p class="dashboard-subtitle">
+                    Here's an overview of your server's current status
+                </p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <button class="btn btn-primary me-2" onclick="refreshDashboard()">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh</span>
                 </button>
+                <a href="/sites/new" class="btn btn-success">
+                    <i class="fas fa-plus"></i>
+                    <span>New Site</span>
+                </a>
             </div>
         </div>
     </div>
-</div>
 
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title mb-0" id="totalSites">-</h4>
-                        <p class="card-text">Total Sites</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-globe fa-2x opacity-75"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title mb-0" id="enabledSites">-</h4>
-                        <p class="card-text">Enabled Sites</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title mb-0" id="disabledSites">-</h4>
-                        <p class="card-text">Disabled Sites</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-pause-circle fa-2x opacity-75"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3">
-        <div class="card text-white" id="nginxStatusCard">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title mb-0" id="nginxStatus">-</h4>
-                        <p class="card-text">Nginx Status</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-server fa-2x opacity-75"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Recent Sites</h5>
-                <a href="/sites" class="btn btn-sm btn-outline-primary">View All</a>
-            </div>
-            <div class="card-body">
-                <div id="recentSitesList">
-                    <div class="d-flex justify-content-center p-4">
-                        <div class="spinner-border" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Quick Actions</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="/sites/new" class="btn btn-primary">
-                        <i class="fas fa-plus me-2"></i>Create New Site
-                    </a>
-                    <button class="btn btn-outline-secondary" onclick="reloadNginx()">
-                        <i class="fas fa-redo me-2"></i>Reload Nginx
-                    </button>
-                    <button class="btn btn-outline-info" onclick="checkNginxStatus()">
-                        <i class="fas fa-heartbeat me-2"></i>Check System Status
-                    </button>
-                    <button class="btn btn-outline-warning" onclick="viewSystemLogs()">
-                        <i class="fas fa-file-alt me-2"></i>View System Logs
-                    </button>
-                </div>
+    <!-- Stats Cards -->
+    <div class="row mb-4 fade-in">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card primary">
+                <div class="stat-value" id="totalSites">0</div>
+                <div class="stat-label">Total Sites</div>
+                <i class="fas fa-globe stat-icon"></i>
             </div>
         </div>
         
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>System Information</h5>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card success">
+                <div class="stat-value" id="enabledSites">0</div>
+                <div class="stat-label">Active Sites</div>
+                <i class="fas fa-check-circle stat-icon"></i>
             </div>
-            <div class="card-body">
-                <div id="systemInfo">
-                    <div class="d-flex justify-content-center p-2">
-                        <div class="spinner-border spinner-border-sm" role="status">
-                            <span class="visually-hidden">Loading...</span>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card warning">
+                <div class="stat-value" id="sslCerts">0</div>
+                <div class="stat-label">SSL Certificates</div>
+                <i class="fas fa-shield-alt stat-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card info" id="nginxStatusCard">
+                <div class="stat-value" id="nginxStatus">
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                </div>
+                <div class="stat-label">Nginx Status</div>
+                <i class="fas fa-server stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recent Sites Section -->
+        <div class="col-lg-8 mb-4">
+            <div class="card slide-up">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Recent Sites
+                    </h5>
+                    <a href="/sites" class="btn btn-sm btn-outline-primary">
+                        View All
+                        <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div id="recentSitesContainer">
+                        <div class="text-center p-4">
+                            <div class="loading-spinner mx-auto"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Activity -->
+            <div class="activity-feed mt-4 slide-up">
+                <h5 class="mb-3">
+                    <i class="fas fa-pulse me-2"></i>System Activity
+                </h5>
+                <div id="activityFeed">
+                    <div class="activity-item">
+                        <div class="activity-icon success">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">System Started</div>
+                            <div class="activity-time">Just now</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & System Info -->
+        <div class="col-lg-4 mb-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4 slide-up">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="quick-actions">
+                        <a href="/sites/new" class="quick-action-btn">
+                            <div class="quick-action-icon primary">
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <div class="quick-action-text">
+                                <div class="quick-action-title">Create Site</div>
+                                <div class="quick-action-desc">Add a new website</div>
+                            </div>
+                            <i class="fas fa-chevron-right ms-auto"></i>
+                        </a>
+                        
+                        <a href="#" onclick="reloadNginx(); return false;" class="quick-action-btn">
+                            <div class="quick-action-icon success">
+                                <i class="fas fa-redo"></i>
+                            </div>
+                            <div class="quick-action-text">
+                                <div class="quick-action-title">Reload Nginx</div>
+                                <div class="quick-action-desc">Apply configuration</div>
+                            </div>
+                            <i class="fas fa-chevron-right ms-auto"></i>
+                        </a>
+                        
+                        <a href="/ssl" class="quick-action-btn">
+                            <div class="quick-action-icon warning">
+                                <i class="fas fa-certificate"></i>
+                            </div>
+                            <div class="quick-action-text">
+                                <div class="quick-action-title">Manage SSL</div>
+                                <div class="quick-action-desc">Certificate settings</div>
+                            </div>
+                            <i class="fas fa-chevron-right ms-auto"></i>
+                        </a>
+                        
+                        <a href="#" onclick="viewSystemLogs(); return false;" class="quick-action-btn">
+                            <div class="quick-action-icon info">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="quick-action-text">
+                                <div class="quick-action-title">View Logs</div>
+                                <div class="quick-action-desc">System events</div>
+                            </div>
+                            <i class="fas fa-chevron-right ms-auto"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Info -->
+            <div class="card slide-up">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>System Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="systemInfo">
+                        <div class="text-center p-3">
+                            <div class="loading-spinner mx-auto"></div>
                         </div>
                     </div>
                 </div>
@@ -140,109 +182,260 @@
         </div>
     </div>
 </div>
+
+<style>
+    /* Additional dashboard-specific animations */
+    .fade-in {
+        animation: fadeIn 0.6s ease-out;
+    }
+    
+    .slide-up {
+        animation: slideUp 0.6s ease-out;
+    }
+    
+    .slide-up:nth-child(1) { animation-delay: 0.1s; }
+    .slide-up:nth-child(2) { animation-delay: 0.2s; }
+    .slide-up:nth-child(3) { animation-delay: 0.3s; }
+    
+    /* Hover effects for interactive elements */
+    .stat-card {
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-8px) scale(1.02);
+    }
+    
+    /* Site list styling */
+    .site-list-item {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .site-list-item:last-child {
+        border-bottom: none;
+    }
+    
+    .site-list-item:hover {
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+        padding-left: 1.5rem;
+    }
+    
+    .site-info {
+        flex: 1;
+    }
+    
+    .site-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+        font-size: 1.05rem;
+    }
+    
+    .site-url {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+    
+    .site-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .site-status-badge.active {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+    }
+    
+    .site-status-badge.inactive {
+        background: rgba(100, 116, 139, 0.1);
+        color: var(--text-secondary);
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
 let dashboardData = {
     sites: [],
-    systemStatus: null
+    systemStatus: null,
+    sslCerts: []
 };
 
-// Load dashboard data on page load
+// Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
     loadDashboardData();
+    
+    // Set up auto-refresh
+    setInterval(updateSystemStatus, 30000); // Update every 30 seconds
 });
 
 async function loadDashboardData() {
     try {
+        // Load all data in parallel
         await Promise.all([
             loadSites(),
-            loadSystemStatus()
+            loadSystemStatus(),
+            loadSSLCerts()
         ]);
+        
         updateDashboard();
+        addActivityItem('Dashboard loaded', 'info');
     } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        console.error('Error loading dashboard:', error);
         showToast('Error', 'Failed to load dashboard data', 'error');
     }
 }
 
 async function loadSites() {
-    const response = await fetchWithAuth('/api/sites/');
-    if (response.ok) {
-        const data = await response.json();
-        dashboardData.sites = data.sites;
+    try {
+        const response = await fetchWithAuth('/api/sites/');
+        if (response.ok) {
+            const data = await response.json();
+            dashboardData.sites = data.sites || [];
+        }
+    } catch (error) {
+        console.error('Error loading sites:', error);
     }
 }
 
 async function loadSystemStatus() {
-    const response = await fetchWithAuth('/api/system/status');
-    if (response.ok) {
-        dashboardData.systemStatus = await response.json();
+    try {
+        const response = await fetchWithAuth('/api/system/status');
+        if (response.ok) {
+            dashboardData.systemStatus = await response.json();
+        }
+    } catch (error) {
+        console.error('Error loading system status:', error);
+    }
+}
+
+async function loadSSLCerts() {
+    try {
+        const response = await fetchWithAuth('/api/ssl/');
+        if (response.ok) {
+            const data = await response.json();
+            dashboardData.sslCerts = data.certificates || [];
+        }
+    } catch (error) {
+        console.error('Error loading SSL certificates:', error);
     }
 }
 
 function updateDashboard() {
-    const sites = dashboardData.sites;
-    const enabledSites = sites.filter(site => site.enabled);
-    const disabledSites = sites.filter(site => !site.enabled);
+    // Update statistics
+    const totalSites = dashboardData.sites.length;
+    const enabledSites = dashboardData.sites.filter(s => s.enabled).length;
+    const sslCerts = dashboardData.sslCerts.length;
     
-    // Update statistics cards
-    document.getElementById('totalSites').textContent = sites.length;
-    document.getElementById('enabledSites').textContent = enabledSites.length;
-    document.getElementById('disabledSites').textContent = disabledSites.length;
+    // Animate counter updates
+    animateValue('totalSites', 0, totalSites, 1000);
+    animateValue('enabledSites', 0, enabledSites, 1000);
+    animateValue('sslCerts', 0, sslCerts, 1000);
     
-    // Update nginx status
-    const nginxCard = document.getElementById('nginxStatusCard');
-    const nginxStatus = document.getElementById('nginxStatus');
+    // Update Nginx status
+    updateNginxStatus();
     
-    if (dashboardData.systemStatus && dashboardData.systemStatus.nginx) {
-        const isRunning = dashboardData.systemStatus.nginx.running;
-        nginxStatus.textContent = isRunning ? 'Running' : 'Stopped';
-        nginxCard.className = 'card text-white ' + (isRunning ? 'bg-success' : 'bg-danger');
-    }
+    // Update recent sites
+    updateRecentSites();
     
-    // Update recent sites list
-    updateRecentSitesList();
-    
-    // Update system information
+    // Update system info
     updateSystemInfo();
 }
 
-function updateRecentSitesList() {
-    const container = document.getElementById('recentSitesList');
-    const sites = dashboardData.sites.slice(0, 5); // Show only 5 recent sites
+function animateValue(id, start, end, duration) {
+    const element = document.getElementById(id);
+    const range = end - start;
+    const minTimer = 50;
+    let stepTime = Math.abs(Math.floor(duration / range));
+    stepTime = Math.max(stepTime, minTimer);
+    const startTime = new Date().getTime();
+    const endTime = startTime + duration;
+    let timer;
+    
+    function run() {
+        const now = new Date().getTime();
+        const remaining = Math.max((endTime - now) / duration, 0);
+        const value = Math.round(end - (remaining * range));
+        element.textContent = value;
+        
+        if (value == end) {
+            clearInterval(timer);
+        }
+    }
+    
+    timer = setInterval(run, stepTime);
+    run();
+}
+
+function updateNginxStatus() {
+    const statusElement = document.getElementById('nginxStatus');
+    const card = document.getElementById('nginxStatusCard');
+    
+    if (dashboardData.systemStatus && dashboardData.systemStatus.nginx) {
+        const isRunning = dashboardData.systemStatus.nginx.running;
+        
+        if (isRunning) {
+            statusElement.innerHTML = '<i class="fas fa-check"></i>';
+            statusElement.style.color = 'white';
+            card.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        } else {
+            statusElement.innerHTML = '<i class="fas fa-times"></i>';
+            statusElement.style.color = 'white';
+            card.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+        }
+    }
+}
+
+function updateRecentSites() {
+    const container = document.getElementById('recentSitesContainer');
+    const sites = dashboardData.sites.slice(0, 5);
     
     if (sites.length === 0) {
         container.innerHTML = `
-            <div class="text-center text-muted p-4">
-                <i class="fas fa-globe fa-3x mb-3 opacity-50"></i>
-                <p>No sites created yet</p>
-                <a href="/sites/new" class="btn btn-primary btn-sm">Create Your First Site</a>
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <h5>No sites yet</h5>
+                <p>Get started by creating your first site</p>
+                <a href="/sites/new" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Create Site
+                </a>
             </div>
         `;
         return;
     }
     
-    let html = '<div class="list-group list-group-flush">';
+    let html = '<div class="site-list">';
     sites.forEach(site => {
-        const statusIcon = site.enabled ? 
-            '<i class="fas fa-check-circle text-success"></i>' : 
-            '<i class="fas fa-pause-circle text-warning"></i>';
+        const statusBadge = site.enabled 
+            ? '<span class="site-status-badge active"><i class="fas fa-circle"></i> Active</span>'
+            : '<span class="site-status-badge inactive"><i class="fas fa-circle"></i> Inactive</span>';
         
         const typeIcon = getTypeIcon(site.type);
         
         html += `
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <h6 class="mb-1">
+            <div class="site-list-item">
+                <div class="site-info">
+                    <div class="site-name">
                         ${typeIcon} ${site.name}
-                        ${statusIcon}
-                    </h6>
-                    <small class="text-muted">${site.domain}</small>
+                    </div>
+                    <div class="site-url">${site.domain}</div>
                 </div>
-                <div>
-                    <a href="/sites/${site.id}" class="btn btn-sm btn-outline-primary">
+                <div class="d-flex align-items-center gap-3">
+                    ${statusBadge}
+                    <a href="/sites/${site.id}" class="btn btn-icon btn-outline-primary">
                         <i class="fas fa-edit"></i>
                     </a>
                 </div>
@@ -258,54 +451,97 @@ function updateSystemInfo() {
     const container = document.getElementById('systemInfo');
     
     if (!dashboardData.systemStatus) {
-        container.innerHTML = '<p class="text-muted">System status unavailable</p>';
+        container.innerHTML = '<p class="text-muted text-center">Loading...</p>';
         return;
     }
     
     const status = dashboardData.systemStatus;
-    const lastUpdate = new Date(status.timestamp).toLocaleString();
-    
     container.innerHTML = `
-        <div class="row g-2">
-            <div class="col-6">
-                <small class="text-muted">App Version</small>
-                <div>${status.application.version}</div>
+        <div class="system-info-grid">
+            <div class="info-item mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">Version</span>
+                    <span class="badge bg-primary">${status.application.version}</span>
+                </div>
             </div>
-            <div class="col-6">
-                <small class="text-muted">Database</small>
-                <div class="text-capitalize">${status.application.database}</div>
+            <div class="info-item mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">Database</span>
+                    <span class="badge bg-info">${status.application.database}</span>
+                </div>
+            </div>
+            <div class="info-item mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">Sites</span>
+                    <span class="fw-bold">${dashboardData.sites.length}</span>
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">SSL Certs</span>
+                    <span class="fw-bold">${dashboardData.sslCerts.length}</span>
+                </div>
             </div>
         </div>
         <hr>
-        <small class="text-muted">Last updated: ${lastUpdate}</small>
+        <small class="text-muted">
+            Last updated: ${new Date(status.timestamp).toLocaleString()}
+        </small>
     `;
 }
 
 function getTypeIcon(type) {
-    switch (type) {
-        case 'static':
-            return '<i class="fas fa-file-code text-primary"></i>';
-        case 'proxy':
-            return '<i class="fas fa-exchange-alt text-info"></i>';
-        case 'load_balancer':
-            return '<i class="fas fa-balance-scale text-warning"></i>';
-        default:
-            return '<i class="fas fa-globe"></i>';
+    const icons = {
+        'static': '<i class="fas fa-file-code text-primary"></i>',
+        'proxy': '<i class="fas fa-exchange-alt text-info"></i>',
+        'load_balancer': '<i class="fas fa-balance-scale text-warning"></i>'
+    };
+    return icons[type] || '<i class="fas fa-globe"></i>';
+}
+
+function addActivityItem(message, type = 'info') {
+    const feed = document.getElementById('activityFeed');
+    const iconClass = {
+        'success': 'fa-check',
+        'warning': 'fa-exclamation',
+        'error': 'fa-times',
+        'info': 'fa-info'
+    }[type] || 'fa-info';
+    
+    const item = document.createElement('div');
+    item.className = 'activity-item fade-in';
+    item.innerHTML = `
+        <div class="activity-icon ${type}">
+            <i class="fas ${iconClass}"></i>
+        </div>
+        <div class="activity-content">
+            <div class="activity-title">${message}</div>
+            <div class="activity-time">${new Date().toLocaleTimeString()}</div>
+        </div>
+    `;
+    
+    feed.insertBefore(item, feed.firstChild);
+    
+    // Keep only last 5 items
+    while (feed.children.length > 5) {
+        feed.removeChild(feed.lastChild);
     }
 }
 
-async function refreshStats() {
-    const btn = event.target;
+async function refreshDashboard() {
+    const btn = event.target.closest('.btn');
     const originalContent = btn.innerHTML;
     
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Refreshing...';
     btn.disabled = true;
     
     try {
         await loadDashboardData();
-        showToast('Success', 'Dashboard refreshed successfully', 'success');
+        showToast('Success', 'Dashboard refreshed', 'success');
+        addActivityItem('Dashboard refreshed', 'success');
     } catch (error) {
         showToast('Error', 'Failed to refresh dashboard', 'error');
+        addActivityItem('Refresh failed', 'error');
     } finally {
         btn.innerHTML = originalContent;
         btn.disabled = false;
@@ -313,7 +549,7 @@ async function refreshStats() {
 }
 
 async function reloadNginx() {
-    if (!confirm('Are you sure you want to reload Nginx? This may briefly interrupt service.')) {
+    if (!confirm('Reload Nginx configuration? This will apply all pending changes.')) {
         return;
     }
     
@@ -324,29 +560,29 @@ async function reloadNginx() {
         
         if (response.ok) {
             showToast('Success', 'Nginx reloaded successfully', 'success');
-            await loadSystemStatus();
-            updateDashboard();
+            addActivityItem('Nginx reloaded', 'success');
+            await updateSystemStatus();
         } else {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to reload Nginx');
         }
     } catch (error) {
         showToast('Error', error.message, 'error');
+        addActivityItem('Nginx reload failed', 'error');
     }
 }
 
-async function checkNginxStatus() {
-    try {
-        await loadSystemStatus();
-        updateDashboard();
-        showToast('Info', 'System status updated', 'info');
-    } catch (error) {
-        showToast('Error', 'Failed to check system status', 'error');
-    }
+async function updateSystemStatus() {
+    await loadSystemStatus();
+    updateNginxStatus();
 }
 
 function viewSystemLogs() {
-    openLogsModal(null, 'System');
+    if (typeof openLogsModal === 'function') {
+        openLogsModal(null, 'System');
+    } else {
+        showToast('Info', 'Logs viewer not available', 'info');
+    }
 }
 </script>
 {% endblock %}
