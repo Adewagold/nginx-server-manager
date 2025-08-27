@@ -31,16 +31,17 @@
     </div>
 
     <!-- Edit Form -->
+    <form id="editSiteForm">
     <div class="row">
         <div class="col-lg-8">
-            <div class="site-detail-card">
-                <div class="site-detail-header">
+            <!-- Basic Configuration Section -->
+            <div class="config-section mb-4">
+                <div class="config-section-header">
                     <h4 class="config-section-title">
-                        <i class="fas fa-cog me-2"></i>Site Configuration
+                        <i class="fas fa-info-circle me-2"></i>Basic Information
                     </h4>
                 </div>
                 <div class="config-section-body">
-                <form id="editSiteForm">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="siteName" class="form-label">Site Name <span class="text-danger">*</span></label>
@@ -54,34 +55,53 @@
                             <small class="text-muted">Example: example.com or subdomain.example.com</small>
                         </div>
                     </div>
-                    
+                </div>
+            </div>
+
+            <!-- Site Type Configuration Section -->
+            <div class="config-section mb-4">
+                <div class="config-section-header">
+                    <h4 class="config-section-title">
+                        <i class="fas fa-layer-group me-2"></i>Site Type Configuration
+                    </h4>
+                </div>
+                <div class="config-section-body">
                     <div class="mb-3">
                         <label class="form-label">Site Type <span class="text-danger">*</span></label>
                         <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-check">
+                            <div class="col-md-4 mb-3">
+                                <div class="site-type-card">
                                     <input class="form-check-input" type="radio" name="type" id="typeStatic" value="static">
-                                    <label class="form-check-label" for="typeStatic">
-                                        <i class="fas fa-file-code text-primary"></i> Static Site
-                                        <br><small class="text-muted">Serve HTML, CSS, JS files</small>
+                                    <label class="form-check-label w-100" for="typeStatic">
+                                        <div class="text-center p-3">
+                                            <i class="fas fa-file-code text-primary fs-2 mb-2 d-block"></i>
+                                            <strong>Static Site</strong>
+                                            <small class="text-muted d-block mt-1">Serve HTML, CSS, JS files</small>
+                                        </div>
                                     </label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="form-check">
+                            <div class="col-md-4 mb-3">
+                                <div class="site-type-card">
                                     <input class="form-check-input" type="radio" name="type" id="typeProxy" value="proxy">
-                                    <label class="form-check-label" for="typeProxy">
-                                        <i class="fas fa-exchange-alt text-info"></i> Reverse Proxy
-                                        <br><small class="text-muted">Forward to another server</small>
+                                    <label class="form-check-label w-100" for="typeProxy">
+                                        <div class="text-center p-3">
+                                            <i class="fas fa-exchange-alt text-info fs-2 mb-2 d-block"></i>
+                                            <strong>Reverse Proxy</strong>
+                                            <small class="text-muted d-block mt-1">Forward to another server</small>
+                                        </div>
                                     </label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <div class="form-check">
+                            <div class="col-md-4 mb-3">
+                                <div class="site-type-card">
                                     <input class="form-check-input" type="radio" name="type" id="typeLoadBalancer" value="load_balancer">
-                                    <label class="form-check-label" for="typeLoadBalancer">
-                                        <i class="fas fa-balance-scale text-warning"></i> Load Balancer
-                                        <br><small class="text-muted">Distribute across servers</small>
+                                    <label class="form-check-label w-100" for="typeLoadBalancer">
+                                        <div class="text-center p-3">
+                                            <i class="fas fa-balance-scale text-warning fs-2 mb-2 d-block"></i>
+                                            <strong>Load Balancer</strong>
+                                            <small class="text-muted d-block mt-1">Distribute across servers</small>
+                                        </div>
                                     </label>
                                 </div>
                             </div>
@@ -126,10 +146,17 @@
                             <small class="text-muted d-block mt-1">Enter server URLs (e.g., http://server1:8080)</small>
                         </div>
                     </div>
-                    
-                    <!-- SSL Configuration Section -->
-                    <div class="border rounded p-3 mb-3" id="sslSection">
-                        <h6 class="mb-3"><i class="fas fa-lock me-1"></i>SSL Configuration</h6>
+                </div>
+            </div>
+
+            <!-- SSL Configuration Section -->
+            <div class="config-section mb-4">
+                <div class="config-section-header">
+                    <h4 class="config-section-title">
+                        <i class="fas fa-lock me-2"></i>SSL Configuration
+                    </h4>
+                </div>
+                <div class="config-section-body" id="sslSection">
                         
                         <div class="row">
                             <div class="col-md-8">
@@ -198,24 +225,30 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <hr>
-                    
-                    <div class="d-flex justify-content-between">
-                        <button type="button" class="btn btn-outline-danger" onclick="testConfiguration()">
-                            <i class="fas fa-vial me-1"></i>Test Configuration
+                </div>
+            </div>
+
+            <!-- Form Actions Section -->
+            <div class="config-section mb-4">
+                <div class="config-section-header">
+                    <h4 class="config-section-title">
+                        <i class="fas fa-tools me-2"></i>Actions
+                    </h4>
+                </div>
+                <div class="config-section-body">
+                    <div class="d-flex justify-content-between flex-wrap gap-3">
+                        <button type="button" class="btn btn-outline-info" onclick="testConfiguration()">
+                            <i class="fas fa-vial me-2"></i>Test Configuration
                         </button>
-                        <div>
-                            <button type="button" class="btn btn-outline-secondary me-2" onclick="cancelEdit()">
-                                Cancel
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" onclick="cancelEdit()">
+                                <i class="fas fa-times me-2"></i>Cancel
                             </button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-1"></i>Save Changes
+                            <button type="submit" class="btn btn-primary" form="editSiteForm">
+                                <i class="fas fa-save me-2"></i>Save Changes
                             </button>
                         </div>
                     </div>
-                </form>
                 </div>
             </div>
         </div>
@@ -257,7 +290,62 @@
             </div>
         </div>
     </div>
+    </form>
 </div>
+
+<style>
+.site-type-card {
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    background: white;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.site-type-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    transform: translateY(-2px);
+}
+
+.site-type-card input[type="radio"] {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+}
+
+.site-type-card input[type="radio"]:checked + label {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+}
+
+.site-type-card input[type="radio"]:checked + label .text-primary,
+.site-type-card input[type="radio"]:checked + label .text-info,
+.site-type-card input[type="radio"]:checked + label .text-warning {
+    color: white !important;
+}
+
+.site-type-card input[type="radio"]:checked + label .text-muted {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.site-type-card .form-check-label {
+    cursor: pointer;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.config-section {
+    margin-bottom: 1.5rem;
+}
+
+.config-section:last-child {
+    margin-bottom: 0;
+}
+</style>
 {% endblock %}
 
 {% block scripts %}
