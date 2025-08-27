@@ -456,9 +456,9 @@ async function loadSiteStatus() {
             document.getElementById('siteStatus').innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span class="text-secondary">Configuration Status</span>
-                    <span class="${data.config_valid ? 'text-success' : 'text-danger'}">
-                        <i class="fas ${data.config_valid ? 'fa-check' : 'fa-times'}"></i>
-                        ${data.config_valid ? 'Valid' : 'Invalid'}
+                    <span class="${data.nginx_config_valid ? 'text-success' : 'text-danger'}">
+                        <i class="fas ${data.nginx_config_valid ? 'fa-check' : 'fa-times'}"></i>
+                        ${data.nginx_config_valid ? 'Valid' : 'Invalid'}
                     </span>
                 </div>
                 <div class="d-flex justify-content-between align-items-center mb-3">
