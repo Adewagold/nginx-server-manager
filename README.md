@@ -11,7 +11,7 @@
 Nginx Site Manager is a powerful, intuitive web interface that transforms nginx administration from complex command-line operations into simple point-and-click actions. Perfect for developers, system administrators, and anyone who wants to manage websites without touching the terminal.
 <img width="1868" height="972" alt="image" src="https://github.com/user-attachments/assets/8c2a5ad9-4eea-4fa7-8a75-ec366c75f7c6" />
 
-![Main Dashboard](screenshots/dashboard.png)
+![Main Dashboard](https://github.com/user-attachments/assets/469e6684-3746-49f3-97c6-3280b6bcde73)
 *Main dashboard showing site overview, system status, and management tools*
 
 ### ✨ Key Features
@@ -45,7 +45,7 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **Status Monitoring**: Real-time site health checks and performance metrics
 - **Configuration Templates**: Pre-built templates for common use cases
 
-![Site Management](screenshots/sites-overview.png)
+![Site Management](https://github.com/user-attachments/assets/700ff5e5-c37f-4fe0-a4b7-cf35699eac1a)
 *Site management interface with status indicators and quick actions*
 
 ### 🔒 SSL Certificate Management
@@ -56,7 +56,11 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **Staging Support**: Test certificates safely before production deployment
 - **User-Accessible Storage**: Certificates stored in user directory (no root required)
 
-![SSL Management](screenshots/ssl-dashboard.png)
+![SSL Management](https://github.com/user-attachments/assets/4881ce9f-3af4-41ce-a119-4b69465d383b)
+<img width="1404" height="1005" alt="image" src="https://github.com/user-attachments/assets/c7d7c992-e700-4f6b-8f42-7bcb7bdfb601" />
+![View Logs](https://github.com/user-attachments/assets/f38625ec-031e-4ac6-b821-63e908809c59)
+
+
 *SSL certificate dashboard with expiry tracking and auto-renewal status*
 
 ### 📁 File Management (Static Sites)
@@ -67,7 +71,8 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **File Operations**: Create, rename, delete, move, and download files
 - **Security**: Path validation, file type restrictions, and size limits
 
-![File Management](screenshots/file-manager.png)
+
+![File Management](https://github.com/user-attachments/assets/954b1871-b5f8-45a1-9425-c78ad42f26ed)
 *Built-in file manager with drag-and-drop upload and inline editing*
 
 ### 📊 Advanced Monitoring
