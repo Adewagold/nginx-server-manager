@@ -3,24 +3,240 @@
 {% block title %}Site Details - Nginx Site Manager{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-edit me-2"></i>Site Details</h1>
-            <a href="/sites" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Back to Sites
-            </a>
+<div class="dashboard-container">
+    <!-- Page Header -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-outline-secondary me-3" onclick="history.back()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h1 class="dashboard-title mb-0">
+                            <i class="fas fa-cog me-2"></i>Site Configuration
+                        </h1>
+                        <p class="dashboard-subtitle mb-0">
+                            Manage site settings and configuration
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="btn-group" id="siteActions" style="display: none;">
+                    <button class="btn btn-outline-primary" onclick="viewLogs()">
+                        <i class="fas fa-file-alt"></i>
+                        <span>Logs</span>
+                    </button>
+                    <button class="btn btn-outline-info" onclick="testSite()" id="testSiteBtn">
+                        <i class="fas fa-flask"></i>
+                        <span>Test</span>
+                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog"></i>
+                            <span>Actions</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="editSite()">
+                                <i class="fas fa-edit me-2"></i>Edit Configuration
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="manageLogs()">
+                                <i class="fas fa-file-alt me-2"></i>View Logs
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="manageFiles()">
+                                <i class="fas fa-folder me-2"></i>File Manager
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="toggleSite()" id="toggleSiteAction">
+                                <i class="fas fa-power-off me-2"></i>Toggle Site
+                            </a></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteSite()">
+                                <i class="fas fa-trash me-2"></i>Delete Site
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Site Details Content -->
+    <div id="siteDetailContainer">
+        <div class="text-center p-5">
+            <div class="loading-spinner mx-auto"></div>
+            <p class="mt-3 text-secondary">Loading site details...</p>
         </div>
     </div>
 </div>
 
-<div id="siteDetailContainer">
-    <div class="d-flex justify-content-center p-4">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading site details...</span>
-        </div>
-    </div>
-</div>
+<style>
+    .site-detail-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+    
+    .site-detail-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1.5rem;
+    }
+    
+    .site-status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 9999px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .site-status-indicator.enabled {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+    }
+    
+    .site-status-indicator.disabled {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+    }
+    
+    .ssl-status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 9999px;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .ssl-status-indicator.active {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+    }
+    
+    .ssl-status-indicator.inactive {
+        background: rgba(100, 116, 139, 0.1);
+        color: var(--text-secondary);
+    }
+    
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        padding: 2rem;
+    }
+    
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .detail-label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+    
+    .detail-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .detail-link {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .detail-link:hover {
+        color: var(--primary-dark);
+        text-decoration: underline;
+    }
+    
+    .config-section {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border-color);
+        margin-bottom: 2rem;
+    }
+    
+    .config-section-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1.25rem 1.5rem;
+        border-radius: 1rem 1rem 0 0;
+    }
+    
+    .config-section-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    
+    .config-section-body {
+        padding: 1.5rem;
+    }
+    
+    .nginx-config {
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 2rem;
+    }
+    
+    .type-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-right: 1rem;
+    }
+    
+    .type-icon.static {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--primary-color);
+    }
+    
+    .type-icon.proxy {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--info-color);
+    }
+    
+    .type-icon.load_balancer {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning-color);
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -37,7 +253,9 @@ async function loadSiteDetails() {
         const response = await fetchWithAuth(`/api/sites/${siteId}`);
         if (response.ok) {
             siteData = await response.json();
+            updatePageTitle();
             renderSiteDetails();
+            document.getElementById('siteActions').style.display = 'flex';
         } else if (response.status === 404) {
             renderNotFound();
         } else {
@@ -49,117 +267,155 @@ async function loadSiteDetails() {
     }
 }
 
+function updatePageTitle() {
+    document.querySelector('.dashboard-title').innerHTML = `
+        <i class="fas fa-globe me-2"></i>${siteData.name}
+    `;
+    document.querySelector('.dashboard-subtitle').textContent = `Configure ${siteData.domain}`;
+}
+
 function renderSiteDetails() {
     const container = document.getElementById('siteDetailContainer');
     
-    const statusBadge = siteData.enabled ? 
-        '<span class="badge bg-success">Enabled</span>' : 
-        '<span class="badge bg-warning">Disabled</span>';
+    const statusIndicator = siteData.enabled ? 
+        '<span class="site-status-indicator enabled"><i class="fas fa-circle"></i> Active</span>' : 
+        '<span class="site-status-indicator disabled"><i class="fas fa-circle"></i> Inactive</span>';
     
-    const sslBadge = siteData.ssl_enabled ? 
-        '<span class="badge bg-success">SSL Active</span>' : 
-        '<span class="badge bg-secondary">SSL Inactive</span>';
+    const sslIndicator = siteData.ssl_enabled ? 
+        '<span class="ssl-status-indicator active"><i class="fas fa-shield-alt"></i> SSL Enabled</span>' : 
+        '<span class="ssl-status-indicator inactive"><i class="fas fa-shield-alt"></i> SSL Disabled</span>';
     
     const typeIcon = getTypeIcon(siteData.type);
     
     container.innerHTML = `
         <div class="row">
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            ${typeIcon} ${siteData.name}
-                        </h5>
-                        <div>
-                            ${statusBadge}
-                            ${sslBadge}
+            <div class="col-lg-8 mb-4">
+                <!-- Site Overview -->
+                <div class="site-detail-card">
+                    <div class="site-detail-header">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <div class="type-icon ${siteData.type}">
+                                    ${typeIcon}
+                                </div>
+                                <div>
+                                    <h3 class="mb-1">${siteData.name}</h3>
+                                    <p class="text-secondary mb-0">${siteData.domain}</p>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                ${statusIndicator}
+                                ${sslIndicator}
+                            </div>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <strong>Domain:</strong><br>
-                                <a href="http://${siteData.domain}" target="_blank" class="text-decoration-none">
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Domain</div>
+                            <div class="detail-value">
+                                <a href="${siteData.ssl_enabled ? 'https' : 'http'}://${siteData.domain}" 
+                                   target="_blank" class="detail-link">
                                     ${siteData.domain} <i class="fas fa-external-link-alt fa-sm"></i>
                                 </a>
                             </div>
-                            <div class="col-md-6">
-                                <strong>Type:</strong><br>
-                                <span class="badge bg-info text-capitalize">${siteData.type.replace('_', ' ')}</span>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Site Type</div>
+                            <div class="detail-value">${formatSiteType(siteData.type)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Port</div>
+                            <div class="detail-value">${siteData.port || '80'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Created</div>
+                            <div class="detail-value">${new Date(siteData.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Last Updated</div>
+                            <div class="detail-value">${new Date(siteData.updated_at).toLocaleDateString()}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Status</div>
+                            <div class="detail-value">${siteData.enabled ? 'Active' : 'Inactive'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuration Section -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <h4 class="config-section-title">
+                            <i class="fas fa-file-code me-2"></i>Nginx Configuration
+                        </h4>
+                    </div>
+                    <div class="config-section-body">
+                        <div id="nginxConfig">
+                            <div class="text-center p-3">
+                                <div class="loading-spinner mx-auto"></div>
+                                <p class="mt-2 text-secondary">Loading configuration...</p>
                             </div>
                         </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <strong>Created:</strong><br>
-                                ${new Date(siteData.created_at).toLocaleString()}
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Last Updated:</strong><br>
-                                ${new Date(siteData.updated_at).toLocaleString()}
-                            </div>
-                        </div>
-                        
-                        ${renderConfigurationDetails()}
-                        
-                        <hr>
-                        
-                        <div class="d-flex gap-2 flex-wrap">
-                            ${siteData.enabled ? 
-                                '<button class="btn btn-warning" onclick="toggleSite(false)"><i class="fas fa-pause me-1"></i>Disable Site</button>' :
-                                '<button class="btn btn-success" onclick="toggleSite(true)"><i class="fas fa-play me-1"></i>Enable Site</button>'
-                            }
-                            <button class="btn btn-outline-primary" onclick="viewConfiguration()">
-                                <i class="fas fa-code me-1"></i>View Config
-                            </button>
-                            ${siteData.type === 'static' ? 
-                                `<a href="/sites/${siteData.id}/files" class="btn btn-outline-info">
-                                    <i class="fas fa-folder me-1"></i>Manage Files
-                                </a>` : ''
-                            }
-                            <button class="btn btn-outline-info" onclick="checkStatus()">
-                                <i class="fas fa-heartbeat me-1"></i>Check Status
-                            </button>
-                            <button class="btn btn-outline-danger" onclick="deleteSite()">
-                                <i class="fas fa-trash me-1"></i>Delete Site
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="text-muted">Configuration file for ${siteData.domain}</small>
+                            <button class="btn btn-sm btn-outline-primary" onclick="copyConfig()">
+                                <i class="fas fa-copy me-1"></i>Copy
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
+            <!-- Sidebar -->
             <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="fas fa-info-circle me-1"></i>Site Status</h6>
+                <!-- Quick Actions -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <h4 class="config-section-title">
+                            <i class="fas fa-bolt me-2"></i>Quick Actions
+                        </h4>
                     </div>
-                    <div class="card-body" id="statusInfo">
-                        <div class="d-flex justify-content-center p-2">
-                            <div class="spinner-border spinner-border-sm" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
+                    <div class="config-section-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="editSite()">
+                                <i class="fas fa-edit me-2"></i>Edit Configuration
+                            </button>
+                            <button class="btn btn-outline-info" onclick="testSite()">
+                                <i class="fas fa-flask me-2"></i>Test Site
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="viewLogs()">
+                                <i class="fas fa-file-alt me-2"></i>View Logs
+                            </button>
+                            ${siteData.type === 'static' ? `
+                                <button class="btn btn-outline-warning" onclick="manageFiles()">
+                                    <i class="fas fa-folder me-2"></i>Manage Files
+                                </button>
+                            ` : ''}
+                            <hr>
+                            <button class="btn ${siteData.enabled ? 'btn-warning' : 'btn-success'}" 
+                                    onclick="toggleSite()" id="toggleSiteBtn">
+                                <i class="fas ${siteData.enabled ? 'fa-pause' : 'fa-play'} me-2"></i>
+                                ${siteData.enabled ? 'Disable' : 'Enable'} Site
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="confirmDelete()">
+                                <i class="fas fa-trash me-2"></i>Delete Site
+                            </button>
                         </div>
                     </div>
                 </div>
-                
-                <div class="card mt-3">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="fas fa-tools me-1"></i>Quick Actions</h6>
+
+                <!-- Site Statistics -->
+                <div class="config-section">
+                    <div class="config-section-header">
+                        <h4 class="config-section-title">
+                            <i class="fas fa-chart-bar me-2"></i>Site Status
+                        </h4>
                     </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-outline-primary btn-sm" onclick="editSite()">
-                                <i class="fas fa-edit me-1"></i>Edit Configuration
-                            </button>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="viewLogs()">
-                                <i class="fas fa-file-alt me-1"></i>View Logs
-                            </button>
-                            <button class="btn btn-outline-warning btn-sm" onclick="reloadNginx()">
-                                <i class="fas fa-sync me-1"></i>Reload Nginx
-                            </button>
-                            ${siteData.type === 'static' ? 
-                                '<button class="btn btn-outline-info btn-sm" onclick="manageFiles()"><i class="fas fa-folder me-1"></i>Manage Files</button>' : ''
-                            }
+                    <div class="config-section-body">
+                        <div id="siteStatus">
+                            <div class="text-center p-3">
+                                <div class="loading-spinner mx-auto"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -167,50 +423,28 @@ function renderSiteDetails() {
         </div>
     `;
     
-    // Load status information
+    // Load additional data
+    loadNginxConfig();
     loadSiteStatus();
+    updateToggleAction();
 }
 
-function renderConfigurationDetails() {
-    const config = siteData.config || {};
-    
-    switch (siteData.type) {
-        case 'static':
-            return `
-                <div class="mb-3">
-                    <strong>Configuration:</strong><br>
-                    <small class="text-muted">
-                        Index files: ${(config.index_files || ['index.html', 'index.htm']).join(', ')}<br>
-                        Web root: /var/www/${siteData.name}/
-                    </small>
-                </div>
+async function loadNginxConfig() {
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}/config`);
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('nginxConfig').innerHTML = `
+                <pre class="nginx-config">${data.config}</pre>
             `;
-            
-        case 'proxy':
-            return `
-                <div class="mb-3">
-                    <strong>Proxy Configuration:</strong><br>
-                    <small class="text-muted">
-                        Upstream URL: ${config.upstream_url || 'Not configured'}<br>
-                        Proxy headers: Host, X-Real-IP, X-Forwarded-For, X-Forwarded-Proto
-                    </small>
-                </div>
-            `;
-            
-        case 'load_balancer':
-            const servers = config.upstream_servers || [];
-            return `
-                <div class="mb-3">
-                    <strong>Load Balancer Configuration:</strong><br>
-                    <small class="text-muted">
-                        Upstream servers: ${servers.length > 0 ? servers.join(', ') : 'None configured'}<br>
-                        Method: Round Robin
-                    </small>
-                </div>
-            `;
-            
-        default:
-            return '';
+        }
+    } catch (error) {
+        document.getElementById('nginxConfig').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Could not load configuration file
+            </div>
+        `;
     }
 }
 
@@ -218,68 +452,124 @@ async function loadSiteStatus() {
     try {
         const response = await fetchWithAuth(`/api/sites/${siteId}/status`);
         if (response.ok) {
-            const status = await response.json();
-            renderStatusInfo(status);
+            const data = await response.json();
+            document.getElementById('siteStatus').innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-secondary">Configuration Status</span>
+                    <span class="${data.config_valid ? 'text-success' : 'text-danger'}">
+                        <i class="fas ${data.config_valid ? 'fa-check' : 'fa-times'}"></i>
+                        ${data.config_valid ? 'Valid' : 'Invalid'}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-secondary">Nginx Status</span>
+                    <span class="${data.nginx_running ? 'text-success' : 'text-danger'}">
+                        <i class="fas ${data.nginx_running ? 'fa-check' : 'fa-times'}"></i>
+                        ${data.nginx_running ? 'Running' : 'Stopped'}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-secondary">Last Check</span>
+                    <span class="text-muted">${new Date().toLocaleTimeString()}</span>
+                </div>
+            `;
         }
     } catch (error) {
-        console.error('Error loading site status:', error);
-        document.getElementById('statusInfo').innerHTML = '<small class="text-muted">Status unavailable</small>';
+        document.getElementById('siteStatus').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Could not load status information
+            </div>
+        `;
     }
 }
 
-function renderStatusInfo(status) {
-    const statusInfo = document.getElementById('statusInfo');
-    
-    const getStatusIcon = (isOk) => isOk ? 
-        '<i class="fas fa-check-circle text-success"></i>' : 
-        '<i class="fas fa-times-circle text-danger"></i>';
-    
-    statusInfo.innerHTML = `
-        <div class="row g-2">
-            <div class="col-12">
-                <small class="text-muted">Nginx Config</small><br>
-                ${getStatusIcon(status.nginx_config_exists && status.nginx_config_valid)}
-                ${status.nginx_config_exists ? 
-                    (status.nginx_config_valid ? 'Valid' : 'Invalid') : 
-                    'Missing'
-                }
-            </div>
-            ${siteData.type === 'static' ? `
-                <div class="col-12">
-                    <small class="text-muted">Web Directory</small><br>
-                    ${getStatusIcon(status.web_directory_exists)}
-                    ${status.web_directory_exists ? 'Exists' : 'Missing'}
-                </div>
-            ` : ''}
-            <div class="col-12">
-                <small class="text-muted">Site Status</small><br>
-                ${status.enabled ? 
-                    '<span class="badge bg-success">Enabled</span>' : 
-                    '<span class="badge bg-warning">Disabled</span>'
-                }
-            </div>
-        </div>
-    `;
+function updateToggleAction() {
+    const toggleBtn = document.getElementById('toggleSiteAction');
+    if (toggleBtn && siteData) {
+        toggleBtn.innerHTML = `
+            <i class="fas ${siteData.enabled ? 'fa-pause' : 'fa-play'} me-2"></i>
+            ${siteData.enabled ? 'Disable' : 'Enable'} Site
+        `;
+    }
 }
 
 function getTypeIcon(type) {
-    switch (type) {
-        case 'static':
-            return '<i class="fas fa-file-code text-primary"></i>';
-        case 'proxy':
-            return '<i class="fas fa-exchange-alt text-info"></i>';
-        case 'load_balancer':
-            return '<i class="fas fa-balance-scale text-warning"></i>';
-        default:
-            return '<i class="fas fa-globe"></i>';
+    const icons = {
+        'static': '<i class="fas fa-file-code"></i>',
+        'proxy': '<i class="fas fa-exchange-alt"></i>',
+        'load_balancer': '<i class="fas fa-balance-scale"></i>'
+    };
+    return icons[type] || '<i class="fas fa-globe"></i>';
+}
+
+function formatSiteType(type) {
+    const types = {
+        'static': 'Static Site',
+        'proxy': 'Reverse Proxy',
+        'load_balancer': 'Load Balancer'
+    };
+    return types[type] || type;
+}
+
+function copyConfig() {
+    const configElement = document.querySelector('.nginx-config');
+    if (configElement) {
+        navigator.clipboard.writeText(configElement.textContent).then(() => {
+            showToast('Success', 'Configuration copied to clipboard', 'success');
+        });
     }
 }
 
-async function toggleSite(enable) {
-    const action = enable ? 'enable' : 'disable';
-    const confirmMessage = `Are you sure you want to ${action} this site?`;
+function editSite() {
+    window.location.href = `/sites/${siteId}/edit`;
+}
+
+function viewLogs() {
+    if (typeof openLogsModal === 'function') {
+        openLogsModal(siteId, siteData.name);
+    } else {
+        window.location.href = `/sites/${siteId}/logs`;
+    }
+}
+
+function manageFiles() {
+    window.location.href = `/sites/${siteId}/files`;
+}
+
+async function testSite() {
+    const btn = document.getElementById('testSiteBtn');
+    const originalContent = btn.innerHTML;
     
-    if (!confirm(confirmMessage)) return;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetchWithAuth(`/api/sites/${siteId}/test`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            showToast('Success', `Site test completed: ${data.message}`, 'success');
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Site test failed');
+        }
+    } catch (error) {
+        showToast('Error', error.message, 'error');
+    } finally {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+    }
+}
+
+async function toggleSite() {
+    const action = siteData.enabled ? 'disable' : 'enable';
+    
+    if (!confirm(`Are you sure you want to ${action} this site?`)) {
+        return;
+    }
     
     try {
         const response = await fetchWithAuth(`/api/sites/${siteId}/${action}`, {
@@ -287,9 +577,8 @@ async function toggleSite(enable) {
         });
         
         if (response.ok) {
-            const result = await response.json();
-            showToast('Success', result.message, 'success');
-            await loadSiteDetails(); // Reload to update status
+            showToast('Success', `Site ${action}d successfully`, 'success');
+            await loadSiteDetails(); // Reload to update UI
         } else {
             const error = await response.json();
             throw new Error(error.detail || `Failed to ${action} site`);
@@ -299,70 +588,26 @@ async function toggleSite(enable) {
     }
 }
 
-async function viewConfiguration() {
-    try {
-        const response = await fetchWithAuth(`/api/sites/${siteId}/config`);
-        if (response.ok) {
-            const data = await response.json();
-            showConfigModal(data.config);
-        } else {
-            throw new Error('Failed to load configuration');
-        }
-    } catch (error) {
-        showToast('Error', error.message, 'error');
+function confirmDelete() {
+    if (!confirm(`Are you sure you want to delete "${siteData.name}"? This action cannot be undone.`)) {
+        return;
     }
-}
-
-function showConfigModal(config) {
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.innerHTML = `
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Nginx Configuration</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <pre><code>${config}</code></pre>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard(\`${config.replace(/`/g, '\\`')}\`)">
-                        <i class="fas fa-copy me-1"></i>Copy
-                    </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    `;
     
-    document.body.appendChild(modal);
-    const bsModal = new bootstrap.Modal(modal);
+    if (!confirm('This will permanently delete all site files and configurations. Continue?')) {
+        return;
+    }
     
-    modal.addEventListener('hidden.bs.modal', () => {
-        document.body.removeChild(modal);
-    });
-    
-    bsModal.show();
-}
-
-async function checkStatus() {
-    await loadSiteStatus();
-    showToast('Info', 'Site status updated', 'info');
+    deleteSite();
 }
 
 async function deleteSite() {
-    const confirmMessage = `Are you sure you want to delete "${siteData.name}"?\n\nThis action cannot be undone and will:\n- Remove the nginx configuration\n- Disable the site if enabled\n- Delete the site from the database`;
-    
-    if (!confirm(confirmMessage)) return;
-    
     try {
         const response = await fetchWithAuth(`/api/sites/${siteId}`, {
             method: 'DELETE'
         });
         
         if (response.ok) {
-            showToast('Success', `Site "${siteData.name}" deleted successfully`, 'success');
+            showToast('Success', 'Site deleted successfully', 'success');
             setTimeout(() => {
                 window.location.href = '/sites';
             }, 1500);
@@ -375,47 +620,15 @@ async function deleteSite() {
     }
 }
 
-function editSite() {
-    window.location.href = `/sites/${siteId}/edit`;
-}
-
-function viewLogs() {
-    openLogsModal(siteId, siteData.name);
-}
-
-function manageFiles() {
-    showToast('Info', 'File management functionality coming soon', 'info');
-}
-
-async function reloadNginx() {
-    if (!confirm('Are you sure you want to reload nginx? This will apply all pending configuration changes.')) {
-        return;
-    }
-    
-    try {
-        const response = await fetchWithAuth('/api/system/nginx/reload', {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            showToast('Success', result.message || 'Nginx reloaded successfully', 'success');
-        } else {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to reload nginx');
-        }
-    } catch (error) {
-        showToast('Error', error.message, 'error');
-    }
-}
-
 function renderNotFound() {
     const container = document.getElementById('siteDetailContainer');
     container.innerHTML = `
-        <div class="text-center p-5">
-            <i class="fas fa-exclamation-triangle fa-4x text-warning mb-3"></i>
-            <h4>Site Not Found</h4>
-            <p class="text-muted mb-4">The site you're looking for doesn't exist or has been deleted.</p>
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <h5>Site Not Found</h5>
+            <p>The requested site could not be found or has been deleted.</p>
             <a href="/sites" class="btn btn-primary">
                 <i class="fas fa-arrow-left me-2"></i>Back to Sites
             </a>
@@ -426,9 +639,15 @@ function renderNotFound() {
 function renderError(message) {
     const container = document.getElementById('siteDetailContainer');
     container.innerHTML = `
-        <div class="alert alert-danger">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            Error loading site details: ${message}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h5>Error Loading Site</h5>
+            <p>${message}</p>
+            <button class="btn btn-primary" onclick="loadSiteDetails()">
+                <i class="fas fa-redo me-2"></i>Retry
+            </button>
         </div>
     `;
 }

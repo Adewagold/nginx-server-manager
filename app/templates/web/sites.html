@@ -28,26 +28,26 @@
         </div>
     </div>
 
-    <!-- Filters Section -->
+    <!-- Filters and Search -->
     <div class="card mb-4 fade-in">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-5">
                     <div class="input-group">
                         <span class="input-group-text">
                             <i class="fas fa-search"></i>
                         </span>
-                        <input type="text" class="form-control" id="searchInput" placeholder="Search sites...">
+                        <input type="text" class="form-control" id="searchInput" placeholder="Search sites by name or domain...">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select class="form-select" id="statusFilter">
                         <option value="">All Status</option>
-                        <option value="enabled">Enabled Only</option>
-                        <option value="disabled">Disabled Only</option>
+                        <option value="enabled">Active Sites</option>
+                        <option value="disabled">Inactive Sites</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select class="form-select" id="typeFilter">
                         <option value="">All Types</option>
                         <option value="static">Static Sites</option>
@@ -55,15 +55,42 @@
                         <option value="load_balancer">Load Balancer</option>
                     </select>
                 </div>
+                <div class="col-md-1">
+                    <button class="btn btn-outline-secondary" onclick="clearFilters()" title="Clear filters">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Sites Grid -->
-    <div id="sitesContainer">
-        <div class="text-center p-5">
-            <div class="loading-spinner mx-auto"></div>
-            <p class="mt-3 text-secondary">Loading sites...</p>
+    <!-- Sites List -->
+    <div class="card slide-up">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Your Sites
+                    <span class="badge bg-secondary ms-2" id="siteCount">0</span>
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <small class="text-muted">Sort by:</small>
+                    <select class="form-select form-select-sm" id="sortBy" style="width: auto;">
+                        <option value="name">Name</option>
+                        <option value="domain">Domain</option>
+                        <option value="created">Created Date</option>
+                        <option value="updated">Last Updated</option>
+                        <option value="status">Status</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="sitesContainer">
+                <div class="text-center p-5">
+                    <div class="loading-spinner mx-auto"></div>
+                    <p class="mt-3 text-secondary">Loading sites...</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -90,154 +117,277 @@
 </div>
 
 <style>
-    /* Sites Grid */
-    .sites-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 1.5rem;
-        animation: fadeIn 0.6s ease-out;
-    }
-    
-    .site-card {
-        background: white;
-        border-radius: 1rem;
-        padding: 1.5rem;
-        box-shadow: var(--shadow-md);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: 1px solid var(--border-color);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .site-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-        transform: scaleX(0);
-        transition: transform 0.3s ease;
-    }
-    
-    .site-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-xl);
-        border-color: var(--primary-color);
-    }
-    
-    .site-card:hover::before {
-        transform: scaleX(1);
-    }
-    
-    .site-header {
+    /* Modern List View Styles */
+    .site-list-item {
         display: flex;
-        justify-content: space-between;
-        align-items: start;
-        margin-bottom: 1rem;
+        align-items: center;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+        position: relative;
+        background: white;
     }
     
-    .site-title {
+    .site-list-item:last-child {
+        border-bottom: none;
+    }
+    
+    .site-list-item:hover {
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0.02) 0%, rgba(139, 92, 246, 0.02) 100%);
+        transform: translateX(4px);
+        box-shadow: inset 4px 0 0 var(--primary-color);
+    }
+    
+    .site-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 1.25rem;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        transition: all 0.3s ease;
+    }
+    
+    .site-icon.static {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--primary-color);
+    }
+    
+    .site-icon.proxy {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--info-color);
+    }
+    
+    .site-icon.load_balancer {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning-color);
+    }
+    
+    .site-list-item:hover .site-icon {
+        transform: scale(1.1);
+    }
+    
+    .site-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .site-name {
+        font-size: 1.125rem;
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
     
     .site-domain {
         color: var(--text-secondary);
         font-size: 0.875rem;
+        margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
     
-    .site-status {
+    .site-domain a {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .site-domain a:hover {
+        text-decoration: underline;
+        color: var(--primary-dark);
+    }
+    
+    .site-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+    
+    .site-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .site-status-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 1.5rem;
+        flex-shrink: 0;
+    }
+    
+    .site-status-badge {
         display: inline-flex;
         align-items: center;
         gap: 0.375rem;
-        padding: 0.25rem 0.75rem;
+        padding: 0.375rem 0.75rem;
         border-radius: 9999px;
         font-size: 0.75rem;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s ease;
     }
     
-    .site-status.enabled {
+    .site-status-badge.enabled {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+    
+    .site-status-badge.disabled {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    
+    .ssl-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .ssl-indicator.enabled {
         background: rgba(16, 185, 129, 0.1);
         color: var(--success-color);
     }
     
-    .site-status.disabled {
+    .ssl-indicator.disabled {
         background: rgba(100, 116, 139, 0.1);
         color: var(--text-secondary);
-    }
-    
-    .site-details {
-        display: flex;
-        gap: 1.5rem;
-        margin: 1.5rem 0;
-        padding: 1rem 0;
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .site-detail {
-        flex: 1;
-    }
-    
-    .site-detail-label {
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.25rem;
-    }
-    
-    .site-detail-value {
-        font-weight: 600;
-        color: var(--text-primary);
     }
     
     .site-actions {
         display: flex;
         gap: 0.5rem;
-        margin-top: 1rem;
+        flex-shrink: 0;
     }
     
-    .btn-site-action {
-        flex: 1;
+    .site-action-btn {
         padding: 0.5rem;
-        font-size: 0.875rem;
         border-radius: 0.5rem;
-        font-weight: 500;
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--text-secondary);
         transition: all 0.2s ease;
-    }
-    
-    .site-type-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 0.5rem;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.25rem;
-        margin-bottom: 1rem;
+        width: 36px;
+        height: 36px;
+        font-size: 0.875rem;
     }
     
-    .site-type-icon.static {
+    .site-action-btn:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background: rgba(99, 102, 241, 0.05);
+        transform: translateY(-1px);
+    }
+    
+    .site-action-btn.edit {
+        border-color: var(--info-color);
+        color: var(--info-color);
+    }
+    
+    .site-action-btn.edit:hover {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: var(--info-color);
+        color: var(--info-color);
+    }
+    
+    .site-action-btn.toggle.enable {
+        border-color: var(--success-color);
+        color: var(--success-color);
+    }
+    
+    .site-action-btn.toggle.enable:hover {
+        background: rgba(16, 185, 129, 0.1);
+    }
+    
+    .site-action-btn.toggle.disable {
+        border-color: var(--warning-color);
+        color: var(--warning-color);
+    }
+    
+    .site-action-btn.toggle.disable:hover {
+        background: rgba(245, 158, 11, 0.1);
+    }
+    
+    .site-action-btn.delete {
+        border-color: var(--danger-color);
+        color: var(--danger-color);
+    }
+    
+    .site-action-btn.delete:hover {
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    .site-type-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .site-type-label.static {
         background: rgba(99, 102, 241, 0.1);
         color: var(--primary-color);
     }
     
-    .site-type-icon.proxy {
+    .site-type-label.proxy {
         background: rgba(59, 130, 246, 0.1);
         color: var(--info-color);
     }
     
-    .site-type-icon.load_balancer {
+    .site-type-label.load_balancer {
         background: rgba(245, 158, 11, 0.1);
         color: var(--warning-color);
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .site-list-item {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 1rem;
+        }
+        
+        .site-status-section {
+            flex-direction: row;
+            justify-content: space-between;
+            margin: 1rem 0 0 0;
+        }
+        
+        .site-actions {
+            margin-top: 1rem;
+            justify-content: center;
+        }
+        
+        .site-meta {
+            flex-wrap: wrap;
+        }
     }
 </style>
 {% endblock %}
@@ -253,9 +403,10 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSites();
     
     // Setup event listeners
-    document.getElementById('searchInput').addEventListener('input', debounce(filterSites, 300));
-    document.getElementById('statusFilter').addEventListener('change', filterSites);
-    document.getElementById('typeFilter').addEventListener('change', filterSites);
+    document.getElementById('searchInput').addEventListener('input', debounce(filterAndSortSites, 300));
+    document.getElementById('statusFilter').addEventListener('change', filterAndSortSites);
+    document.getElementById('typeFilter').addEventListener('change', filterAndSortSites);
+    document.getElementById('sortBy').addEventListener('change', filterAndSortSites);
 });
 
 async function loadSites() {
@@ -265,7 +416,7 @@ async function loadSites() {
             const data = await response.json();
             allSites = data.sites || [];
             filteredSites = [...allSites];
-            renderSites();
+            filterAndSortSites();
         } else {
             throw new Error('Failed to load sites');
         }
@@ -273,7 +424,7 @@ async function loadSites() {
         console.error('Error loading sites:', error);
         showToast('Error', 'Failed to load sites', 'error');
         document.getElementById('sitesContainer').innerHTML = `
-            <div class="empty-state">
+            <div class="empty-state p-5">
                 <div class="empty-state-icon">
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
@@ -287,11 +438,13 @@ async function loadSites() {
     }
 }
 
-function filterSites() {
+function filterAndSortSites() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const statusFilter = document.getElementById('statusFilter').value;
     const typeFilter = document.getElementById('typeFilter').value;
+    const sortBy = document.getElementById('sortBy').value;
     
+    // Filter sites
     filteredSites = allSites.filter(site => {
         const matchesSearch = !searchTerm || 
             site.name.toLowerCase().includes(searchTerm) ||
@@ -306,80 +459,119 @@ function filterSites() {
         return matchesSearch && matchesStatus && matchesType;
     });
     
+    // Sort sites
+    filteredSites.sort((a, b) => {
+        switch (sortBy) {
+            case 'name':
+                return a.name.localeCompare(b.name);
+            case 'domain':
+                return a.domain.localeCompare(b.domain);
+            case 'created':
+                return new Date(b.created_at) - new Date(a.created_at);
+            case 'updated':
+                return new Date(b.updated_at) - new Date(a.updated_at);
+            case 'status':
+                return b.enabled - a.enabled;
+            default:
+                return 0;
+        }
+    });
+    
     renderSites();
 }
 
 function renderSites() {
     const container = document.getElementById('sitesContainer');
+    document.getElementById('siteCount').textContent = filteredSites.length;
     
     if (filteredSites.length === 0) {
         container.innerHTML = `
-            <div class="empty-state">
+            <div class="empty-state p-5">
                 <div class="empty-state-icon">
                     <i class="fas fa-globe"></i>
                 </div>
                 <h5>No Sites Found</h5>
-                <p>${allSites.length === 0 ? 'Get started by creating your first site' : 'Try adjusting your filters'}</p>
-                ${allSites.length === 0 ? '<a href="/sites/new" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Create Site</a>' : ''}
+                <p>${allSites.length === 0 ? 'Get started by creating your first site' : 'Try adjusting your search filters'}</p>
+                ${allSites.length === 0 ? '<a href="/sites/new" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Create Your First Site</a>' : 
+                  '<button class="btn btn-outline-primary" onclick="clearFilters()"><i class="fas fa-times me-2"></i>Clear Filters</button>'}
             </div>
         `;
         return;
     }
     
-    const sitesHTML = filteredSites.map(site => `
-        <div class="site-card">
-            <div class="site-type-icon ${site.type}">
-                ${getTypeIcon(site.type)}
-            </div>
-            <div class="site-header">
-                <div>
-                    <h3 class="site-title">${site.name}</h3>
+    const sitesHTML = filteredSites.map(site => {
+        const typeIcon = getTypeIcon(site.type);
+        const statusClass = site.enabled ? 'enabled' : 'disabled';
+        const statusText = site.enabled ? 'Active' : 'Inactive';
+        const statusIcon = site.enabled ? 'fa-circle' : 'fa-pause-circle';
+        const sslClass = site.ssl_enabled ? 'enabled' : 'disabled';
+        const sslText = site.ssl_enabled ? 'SSL' : 'No SSL';
+        const toggleClass = site.enabled ? 'disable' : 'enable';
+        const toggleIcon = site.enabled ? 'fa-pause' : 'fa-play';
+        const toggleTitle = site.enabled ? 'Disable site' : 'Enable site';
+        
+        return `
+            <div class="site-list-item">
+                <div class="site-icon ${site.type}">
+                    ${typeIcon}
+                </div>
+                <div class="site-info">
+                    <div class="site-name">
+                        ${site.name}
+                        <span class="site-type-label ${site.type}">${formatType(site.type)}</span>
+                    </div>
                     <div class="site-domain">
-                        <i class="fas fa-link"></i>
-                        <span>${site.domain}</span>
+                        <i class="fas fa-link fa-sm"></i>
+                        <a href="${site.ssl_enabled ? 'https' : 'http'}://${site.domain}" target="_blank">
+                            ${site.domain}
+                            <i class="fas fa-external-link-alt fa-xs ms-1"></i>
+                        </a>
+                    </div>
+                    <div class="site-meta">
+                        <div class="site-meta-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>Created ${formatDate(site.created_at)}</span>
+                        </div>
+                        <div class="site-meta-item">
+                            <i class="fas fa-edit"></i>
+                            <span>Updated ${formatDate(site.updated_at)}</span>
+                        </div>
+                        <div class="site-meta-item">
+                            <i class="fas fa-network-wired"></i>
+                            <span>Port ${site.port || '80'}</span>
+                        </div>
                     </div>
                 </div>
-                <span class="site-status ${site.enabled ? 'enabled' : 'disabled'}">
-                    <i class="fas fa-circle"></i>
-                    ${site.enabled ? 'Active' : 'Inactive'}
-                </span>
-            </div>
-            
-            <div class="site-details">
-                <div class="site-detail">
-                    <div class="site-detail-label">Type</div>
-                    <div class="site-detail-value">${formatType(site.type)}</div>
-                </div>
-                <div class="site-detail">
-                    <div class="site-detail-label">Port</div>
-                    <div class="site-detail-value">${site.port || '80'}</div>
-                </div>
-                <div class="site-detail">
-                    <div class="site-detail-label">SSL</div>
-                    <div class="site-detail-value">
-                        ${site.ssl_enabled ? '<i class="fas fa-shield-alt text-success"></i> Enabled' : '<i class="fas fa-times text-muted"></i> Disabled'}
+                <div class="site-status-section">
+                    <div class="site-status-badge ${statusClass}">
+                        <i class="fas ${statusIcon}"></i>
+                        ${statusText}
+                    </div>
+                    <div class="ssl-indicator ${sslClass}">
+                        <i class="fas fa-shield-alt"></i>
+                        ${sslText}
                     </div>
                 </div>
+                <div class="site-actions">
+                    <button class="site-action-btn edit" onclick="editSite(${site.id})" title="Edit site">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="site-action-btn toggle ${toggleClass}" 
+                            onclick="toggleSite(${site.id}, ${site.enabled}, '${site.name}')" 
+                            title="${toggleTitle}">
+                        <i class="fas ${toggleIcon}"></i>
+                    </button>
+                    <button class="site-action-btn delete" 
+                            onclick="confirmDelete(${site.id}, '${site.name}')" 
+                            title="Delete site">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
             </div>
-            
-            <div class="site-actions">
-                <a href="/sites/${site.id}" class="btn btn-outline-primary btn-site-action">
-                    <i class="fas fa-edit me-1"></i>Edit
-                </a>
-                <button onclick="toggleSite(${site.id}, ${site.enabled})" 
-                        class="btn ${site.enabled ? 'btn-outline-warning' : 'btn-outline-success'} btn-site-action">
-                    <i class="fas ${site.enabled ? 'fa-pause' : 'fa-play'} me-1"></i>
-                    ${site.enabled ? 'Disable' : 'Enable'}
-                </button>
-                <button onclick="confirmDelete(${site.id}, '${site.name}')" 
-                        class="btn btn-outline-danger btn-site-action">
-                    <i class="fas fa-trash me-1"></i>Delete
-                </button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
-    container.innerHTML = `<div class="sites-grid">${sitesHTML}</div>`;
+    container.innerHTML = sitesHTML;
 }
 
 function getTypeIcon(type) {
@@ -393,15 +585,44 @@ function getTypeIcon(type) {
 
 function formatType(type) {
     const types = {
-        'static': 'Static Site',
-        'proxy': 'Reverse Proxy',
+        'static': 'Static',
+        'proxy': 'Proxy',
         'load_balancer': 'Load Balancer'
     };
     return types[type] || type;
 }
 
-async function toggleSite(siteId, currentStatus) {
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    if (diffDays < 365) return `${Math.ceil(diffDays / 30)} months ago`;
+    return date.toLocaleDateString();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('sortBy').value = 'name';
+    filterAndSortSites();
+}
+
+function editSite(siteId) {
+    window.location.href = `/sites/${siteId}`;
+}
+
+async function toggleSite(siteId, currentStatus, siteName) {
     const action = currentStatus ? 'disable' : 'enable';
+    
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${siteName}"?`)) {
+        return;
+    }
     
     try {
         const response = await fetchWithAuth(`/api/sites/${siteId}/${action}`, {
@@ -423,29 +644,36 @@ async function toggleSite(siteId, currentStatus) {
 function confirmDelete(siteId, siteName) {
     document.getElementById('actionModalTitle').textContent = 'Confirm Deletion';
     document.getElementById('actionModalBody').innerHTML = `
-        <p>Are you sure you want to delete <strong>${siteName}</strong>?</p>
-        <p class="text-danger mb-0">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            This action cannot be undone.
-        </p>
+        <div class="d-flex align-items-start gap-3">
+            <div class="text-warning">
+                <i class="fas fa-exclamation-triangle fa-2x"></i>
+            </div>
+            <div>
+                <p class="mb-2">Are you sure you want to delete <strong>"${siteName}"</strong>?</p>
+                <p class="text-danger mb-0">
+                    <small><i class="fas fa-info-circle me-1"></i>
+                    This will permanently delete all site files and configurations. This action cannot be undone.</small>
+                </p>
+            </div>
+        </div>
     `;
     
     const confirmBtn = document.getElementById('confirmActionBtn');
     confirmBtn.className = 'btn btn-danger';
     confirmBtn.innerHTML = '<i class="fas fa-trash me-2"></i>Delete Site';
-    confirmBtn.onclick = () => deleteSite(siteId);
+    confirmBtn.onclick = () => deleteSite(siteId, siteName);
     
     actionModal.show();
 }
 
-async function deleteSite(siteId) {
+async function deleteSite(siteId, siteName) {
     try {
         const response = await fetchWithAuth(`/api/sites/${siteId}`, {
             method: 'DELETE'
         });
         
         if (response.ok) {
-            showToast('Success', 'Site deleted successfully', 'success');
+            showToast('Success', `"${siteName}" deleted successfully`, 'success');
             actionModal.hide();
             await loadSites();
         } else {
