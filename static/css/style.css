@@ -928,6 +928,17 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+/* Content Section Background */
+.content-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-top: 1rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    backdrop-filter: blur(10px);
+}
+
 /* Dynamic config sections animation */
 #typeSpecificConfig .config-section {
     animation: slideInUp 0.3s ease-out;
@@ -941,6 +952,15 @@ body {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+/* Responsive Design for Content Section */
+@media (max-width: 768px) {
+    .content-section {
+        padding: 1.5rem;
+        margin-top: 0.5rem;
+        border-radius: 12px;
     }
 }
 
