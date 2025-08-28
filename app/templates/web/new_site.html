@@ -26,7 +26,7 @@
 
     <!-- Main Content -->
     <div class="row">
-        <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="col-lg-10 col-xl-12 mx-auto">
             <div class="card modern-card fade-in">
                 <div class="card-body p-4">
                     <form id="createSiteForm">
@@ -875,22 +875,61 @@ document.getElementById('upstreamUrl')?.addEventListener('input', updateFormProg
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
-    .dashboard-header {
+@media (max-width: 991.98px) {
+    .dashboard-header .row {
         text-align: center;
+    }
+    
+    .dashboard-header .col-md-6:last-child {
+        margin-top: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 0 15px;
+    }
+    
+    .dashboard-header {
         margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
     }
     
     .dashboard-title {
         font-size: 1.5rem;
+        justify-content: center;
+        text-align: center;
     }
     
     .dashboard-subtitle {
         font-size: 1rem;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    
+    .modern-card {
+        margin: 0 -15px;
+        border-radius: 0;
     }
     
     .modern-card .card-body {
-        padding: 2rem 1.5rem;
+        padding: 1.5rem 1rem;
+    }
+    
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+    }
+    
+    .section-title {
+        font-size: 1.1rem;
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .section-number {
+        margin: 0 auto 0.5rem;
     }
     
     .form-actions .d-flex {
@@ -901,6 +940,7 @@ document.getElementById('upstreamUrl')?.addEventListener('input', updateFormProg
     .button-group {
         flex-direction: column;
         width: 100%;
+        gap: 0.5rem;
     }
     
     .button-group .btn {
@@ -922,6 +962,16 @@ document.getElementById('upstreamUrl')?.addEventListener('input', updateFormProg
     .config-header,
     .config-body {
         padding: 1rem;
+    }
+    
+    .modern-input-group {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .modern-input-group .btn {
+        width: 100%;
+        margin-top: 0.25rem;
     }
 }
 
