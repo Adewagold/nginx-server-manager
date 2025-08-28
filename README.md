@@ -46,7 +46,8 @@ Nginx Site Manager is a powerful, intuitive web interface that transforms nginx 
 - **Configuration Templates**: Pre-built templates for common use cases
 
 ![Site Management](https://github.com/user-attachments/assets/700ff5e5-c37f-4fe0-a4b7-cf35699eac1a)
-<img width="1775" height="1030" alt="image" src="https://github.com/user-attachments/assets/674a1a43-b589-4f1a-9fda-8faf7c7922e7" />
+<img width="1655" height="990" alt="image" src="https://github.com/user-attachments/assets/bfa2280c-1c65-40e7-a964-bc09e9c90662" />
+
 
 *Site management interface with status indicators and quick actions*
 
