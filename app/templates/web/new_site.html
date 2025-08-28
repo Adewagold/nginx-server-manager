@@ -3,201 +3,265 @@
 {% block title %}Create New Site - Nginx Site Manager{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-plus me-2"></i>Create New Site</h1>
-            <a href="/sites" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Back to Sites
-            </a>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-lg-8 mx-auto">
-        <div class="card">
-            <div class="card-body">
-                <form id="createSiteForm">
-                    <!-- Basic Information -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label for="siteName" class="form-label">
-                                <i class="fas fa-tag me-1"></i>Site Name *
-                            </label>
-                            <input type="text" class="form-control" id="siteName" name="name" required
-                                   pattern="^[a-zA-Z0-9_-]+$" 
-                                   title="Only letters, numbers, hyphens, and underscores allowed">
-                            <div class="form-text">
-                                Used for internal identification and nginx config filename
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="domain" class="form-label">
-                                <i class="fas fa-globe me-1"></i>Domain *
-                            </label>
-                            <input type="text" class="form-control" id="domain" name="domain" required
-                                   placeholder="example.com">
-                            <div class="form-text">
-                                The domain name that will serve this site
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Site Type -->
-                    <div class="mb-4">
-                        <label class="form-label">
-                            <i class="fas fa-cogs me-1"></i>Site Type *
-                        </label>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="card site-type-card" data-type="static">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-file-code fa-2x text-primary mb-2"></i>
-                                        <h6>Static Site</h6>
-                                        <small class="text-muted">Serve HTML, CSS, JS files</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card site-type-card" data-type="proxy">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-exchange-alt fa-2x text-info mb-2"></i>
-                                        <h6>Reverse Proxy</h6>
-                                        <small class="text-muted">Forward to backend application</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card site-type-card" data-type="load_balancer">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-balance-scale fa-2x text-warning mb-2"></i>
-                                        <h6>Load Balancer</h6>
-                                        <small class="text-muted">Distribute across multiple servers</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <input type="hidden" id="siteType" name="type" required>
-                    </div>
-
-                    <!-- Configuration Sections -->
-                    
-                    <!-- Static Site Configuration -->
-                    <div id="staticConfig" class="config-section" style="display: none;">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6><i class="fas fa-file-code me-2"></i>Static Site Configuration</h6>
-                                <p class="text-muted">Your files will be served from /var/www/[site-name]/</p>
-                                
-                                <div class="mb-3">
-                                    <label for="indexFiles" class="form-label">Index Files</label>
-                                    <input type="text" class="form-control" id="indexFiles" 
-                                           value="index.html, index.htm" 
-                                           placeholder="index.html, index.htm">
-                                    <div class="form-text">
-                                        Comma-separated list of index files to try
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Proxy Configuration -->
-                    <div id="proxyConfig" class="config-section" style="display: none;">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6><i class="fas fa-exchange-alt me-2"></i>Reverse Proxy Configuration</h6>
-                                
-                                <div class="mb-3">
-                                    <label for="upstreamUrl" class="form-label">
-                                        <i class="fas fa-link me-1"></i>Upstream URL *
-                                    </label>
-                                    <input type="url" class="form-control" id="upstreamUrl" 
-                                           placeholder="http://localhost:3000">
-                                    <div class="form-text">
-                                        The backend server URL to proxy requests to
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Load Balancer Configuration -->
-                    <div id="loadBalancerConfig" class="config-section" style="display: none;">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6><i class="fas fa-balance-scale me-2"></i>Load Balancer Configuration</h6>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">
-                                        <i class="fas fa-server me-1"></i>Upstream Servers *
-                                    </label>
-                                    <div id="upstreamServers">
-                                        <div class="input-group mb-2">
-                                            <input type="text" class="form-control upstream-server" 
-                                                   placeholder="192.168.1.10:8080">
-                                            <button type="button" class="btn btn-outline-danger" onclick="removeUpstreamServer(this)">
-                                                <i class="fas fa-minus"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addUpstreamServer()">
-                                        <i class="fas fa-plus me-1"></i>Add Server
-                                    </button>
-                                    <div class="form-text">
-                                        List of backend servers to balance load across
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Configuration -->
-                    <div class="mb-4">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="showAdvanced">
-                            <label class="form-check-label" for="showAdvanced">
-                                <i class="fas fa-cog me-1"></i>Show Advanced Configuration
-                            </label>
-                        </div>
-                    </div>
-
-                    <div id="advancedConfig" style="display: none;">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6><i class="fas fa-cog me-2"></i>Advanced Configuration</h6>
-                                
-                                <div class="mb-3">
-                                    <label for="customConfig" class="form-label">Custom Nginx Configuration</label>
-                                    <textarea class="form-control" id="customConfig" rows="6" 
-                                              placeholder="# Add custom nginx directives here..."></textarea>
-                                    <div class="form-text">
-                                        Additional nginx configuration to include in the server block
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Submit Buttons -->
-                    <div class="d-flex justify-content-between">
-                        <a href="/sites" class="btn btn-outline-secondary">
-                            <i class="fas fa-times me-2"></i>Cancel
-                        </a>
-                        <div>
-                            <button type="submit" class="btn btn-primary" name="action" value="create">
-                                <i class="fas fa-save me-2"></i>Create Site
-                            </button>
-                            <button type="submit" class="btn btn-success" name="action" value="create_and_enable">
-                                <i class="fas fa-play me-2"></i>Create & Enable
-                            </button>
-                        </div>
-                    </div>
-                </form>
+<div class="dashboard-container">
+    <!-- Page Header -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="dashboard-title">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Site
+                </h1>
+                <p class="dashboard-subtitle">
+                    Configure and deploy a new website with just a few clicks
+                </p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <a href="/sites" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Back to Sites</span>
+                </a>
             </div>
         </div>
     </div>
+
+    <!-- Main Content -->
+    <div class="card modern-card fade-in">
+        <div class="card-body p-4">
+                    <form id="createSiteForm">
+                        <!-- Progress Indicator -->
+                        <div class="form-progress mb-4">
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" style="width: 25%;" id="formProgress"></div>
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Basic Information -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <span class="section-number">1</span>
+                                Basic Information
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="siteName" class="form-label">
+                                        <i class="fas fa-tag text-primary me-2"></i>Site Name *
+                                    </label>
+                                    <input type="text" class="form-control modern-input" id="siteName" name="name" required
+                                           pattern="^[a-zA-Z0-9_-]+$" 
+                                           title="Only letters, numbers, hyphens, and underscores allowed"
+                                           placeholder="my-website">
+                                    <div class="form-text">
+                                        Used for internal identification and nginx config filename
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="domain" class="form-label">
+                                        <i class="fas fa-globe text-info me-2"></i>Domain *
+                                    </label>
+                                    <input type="text" class="form-control modern-input" id="domain" name="domain" required
+                                           placeholder="example.com">
+                                    <div class="form-text">
+                                        The domain name that will serve this site
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Site Type Selection -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <span class="section-number">2</span>
+                                Select Site Type *
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div class="site-type-card" data-type="static">
+                                        <div class="type-icon static">
+                                            <i class="fas fa-file-code"></i>
+                                        </div>
+                                        <h6 class="type-title">Static Site</h6>
+                                        <p class="type-description">Serve HTML, CSS, JS files directly from disk</p>
+                                        <div class="type-check">
+                                            <i class="fas fa-check-circle"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="site-type-card" data-type="proxy">
+                                        <div class="type-icon proxy">
+                                            <i class="fas fa-exchange-alt"></i>
+                                        </div>
+                                        <h6 class="type-title">Reverse Proxy</h6>
+                                        <p class="type-description">Forward requests to backend application</p>
+                                        <div class="type-check">
+                                            <i class="fas fa-check-circle"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="site-type-card" data-type="load_balancer">
+                                        <div class="type-icon balancer">
+                                            <i class="fas fa-balance-scale"></i>
+                                        </div>
+                                        <h6 class="type-title">Load Balancer</h6>
+                                        <p class="type-description">Distribute load across multiple servers</p>
+                                        <div class="type-check">
+                                            <i class="fas fa-check-circle"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="siteType" name="type" required>
+                        </div>
+
+                        <!-- Step 3: Configuration -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <span class="section-number">3</span>
+                                Configuration Settings
+                            </h5>
+                            
+                            <!-- Static Site Configuration -->
+                            <div id="staticConfig" class="config-section" style="display: none;">
+                                <div class="config-card">
+                                    <div class="config-header">
+                                        <i class="fas fa-file-code text-primary me-2"></i>
+                                        <span>Static Site Settings</span>
+                                    </div>
+                                    <div class="config-body">
+                                        <div class="alert alert-info alert-modern">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            Your files will be served from <code>/var/www/[site-name]/</code>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="indexFiles" class="form-label">Index Files</label>
+                                            <input type="text" class="form-control modern-input" id="indexFiles" 
+                                                   value="index.html, index.htm" 
+                                                   placeholder="index.html, index.htm">
+                                            <div class="form-text">
+                                                Comma-separated list of index files to try
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Proxy Configuration -->
+                            <div id="proxyConfig" class="config-section" style="display: none;">
+                                <div class="config-card">
+                                    <div class="config-header">
+                                        <i class="fas fa-exchange-alt text-info me-2"></i>
+                                        <span>Reverse Proxy Settings</span>
+                                    </div>
+                                    <div class="config-body">
+                                        <div class="mb-3">
+                                            <label for="upstreamUrl" class="form-label">
+                                                <i class="fas fa-link text-primary me-2"></i>Upstream URL *
+                                            </label>
+                                            <input type="url" class="form-control modern-input" id="upstreamUrl" 
+                                                   placeholder="http://localhost:3000">
+                                            <div class="form-text">
+                                                The backend server URL to proxy requests to
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Load Balancer Configuration -->
+                            <div id="loadBalancerConfig" class="config-section" style="display: none;">
+                                <div class="config-card">
+                                    <div class="config-header">
+                                        <i class="fas fa-balance-scale text-warning me-2"></i>
+                                        <span>Load Balancer Settings</span>
+                                    </div>
+                                    <div class="config-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">
+                                                <i class="fas fa-server text-primary me-2"></i>Upstream Servers *
+                                            </label>
+                                            <div id="upstreamServers">
+                                                <div class="input-group modern-input-group mb-2">
+                                                    <input type="text" class="form-control modern-input upstream-server" 
+                                                           placeholder="192.168.1.10:8080">
+                                                    <button type="button" class="btn btn-outline-danger" onclick="removeUpstreamServer(this)">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addUpstreamServer()">
+                                                <i class="fas fa-plus"></i>
+                                                <span>Add Server</span>
+                                            </button>
+                                            <div class="form-text mt-2">
+                                                List of backend servers to balance load across
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Advanced Configuration (Optional) -->
+                        <div class="form-section">
+                            <div class="advanced-toggle">
+                                <div class="form-check modern-check">
+                                    <input class="form-check-input" type="checkbox" id="showAdvanced">
+                                    <label class="form-check-label" for="showAdvanced">
+                                        <i class="fas fa-cog text-secondary me-2"></i>
+                                        <span>Show Advanced Configuration</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div id="advancedConfig" class="collapse-section" style="display: none;">
+                                <div class="config-card">
+                                    <div class="config-header">
+                                        <i class="fas fa-code text-secondary me-2"></i>
+                                        <span>Advanced Settings</span>
+                                    </div>
+                                    <div class="config-body">
+                                        <div class="mb-3">
+                                            <label for="customConfig" class="form-label">
+                                                Custom Nginx Configuration
+                                            </label>
+                                            <textarea class="form-control modern-input code-editor" id="customConfig" rows="8" 
+                                                      placeholder="# Add custom nginx directives here...
+# Example:
+# client_max_body_size 100M;
+# proxy_read_timeout 300;"></textarea>
+                                            <div class="form-text">
+                                                Additional nginx configuration to include in the server block
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="form-actions">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="/sites" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i>
+                                    <span>Cancel</span>
+                                </a>
+                                <div class="button-group">
+                                    <button type="submit" class="btn btn-primary btn-modern" name="action" value="create">
+                                        <i class="fas fa-save"></i>
+                                        <span>Create Site</span>
+                                    </button>
+                                    <button type="submit" class="btn btn-success btn-modern" name="action" value="create_and_enable">
+                                        <i class="fas fa-rocket"></i>
+                                        <span>Create & Enable</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
 </div>
 {% endblock %}
 
@@ -216,10 +280,10 @@ function setupSiteTypeSelection() {
     typeCards.forEach(card => {
         card.addEventListener('click', function() {
             // Remove active class from all cards
-            typeCards.forEach(c => c.classList.remove('border-primary', 'bg-primary', 'text-white'));
+            typeCards.forEach(c => c.classList.remove('selected'));
             
             // Add active class to clicked card
-            this.classList.add('border-primary', 'bg-primary', 'text-white');
+            this.classList.add('selected');
             
             // Set the site type
             const type = this.dataset.type;
@@ -227,6 +291,9 @@ function setupSiteTypeSelection() {
             
             // Show appropriate configuration section
             showConfigSection(type);
+            
+            // Update progress
+            updateFormProgress();
         });
     });
 }
@@ -407,12 +474,12 @@ function setupAdvancedConfig() {
 function addUpstreamServer() {
     const container = document.getElementById('upstreamServers');
     const div = document.createElement('div');
-    div.className = 'input-group mb-2';
+    div.className = 'input-group modern-input-group mb-2';
     div.innerHTML = `
-        <input type="text" class="form-control upstream-server" 
+        <input type="text" class="form-control modern-input upstream-server" 
                placeholder="192.168.1.10:8080">
         <button type="button" class="btn btn-outline-danger" onclick="removeUpstreamServer(this)">
-            <i class="fas fa-minus"></i>
+            <i class="fas fa-times"></i>
         </button>
     `;
     container.appendChild(div);
@@ -426,6 +493,32 @@ function removeUpstreamServer(button) {
     if (inputGroups.length > 1) {
         button.parentElement.remove();
     }
+}
+
+// Update form progress
+function updateFormProgress() {
+    const progressBar = document.getElementById('formProgress');
+    let progress = 25;
+    
+    if (document.getElementById('siteName').value && document.getElementById('domain').value) {
+        progress += 25;
+    }
+    
+    if (document.getElementById('siteType').value) {
+        progress += 25;
+    }
+    
+    const siteType = document.getElementById('siteType').value;
+    if (siteType) {
+        if ((siteType === 'proxy' && document.getElementById('upstreamUrl').value) ||
+            (siteType === 'load_balancer' && document.querySelectorAll('.upstream-server').length > 0) ||
+            siteType === 'static') {
+            progress += 25;
+        }
+    }
+    
+    progressBar.style.width = progress + '%';
+    progressBar.setAttribute('aria-valuenow', progress);
 }
 
 // Auto-generate site name from domain
@@ -442,33 +535,413 @@ document.getElementById('domain').addEventListener('input', function() {
             .toLowerCase();
         siteNameInput.value = siteName;
     }
+    
+    updateFormProgress();
 });
+
+// Update progress on input changes
+document.getElementById('siteName').addEventListener('input', updateFormProgress);
+document.getElementById('upstreamUrl')?.addEventListener('input', updateFormProgress);
 </script>
 
 <style>
+
+/* Modern Card */
+.modern-card {
+    background: white;
+    border-radius: 1.5rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    border: none;
+    overflow: visible;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+/* Progress Bar */
+.form-progress {
+    margin-bottom: 2rem;
+}
+
+.form-progress .progress {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.form-progress .progress-bar {
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    transition: width 0.5s ease;
+}
+
+/* Form Sections */
+.form-section {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.form-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 1rem;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+/* Modern Inputs */
+.modern-input {
+    border: 2px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.modern-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    outline: none;
+}
+
+.modern-input-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.modern-input-group .modern-input {
+    flex: 1;
+}
+
+/* Site Type Cards */
+
 .site-type-card {
+    background: white;
+    border: 3px solid #f1f5f9;
+    border-radius: 1rem;
+    padding: 1.5rem;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border: 2px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    text-align: center;
 }
 
 .site-type-card:hover {
-    border-color: #0d6efd;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: var(--primary-color);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(99, 102, 241, 0.15);
 }
 
-.site-type-card.border-primary.bg-primary .fas {
-    color: white !important;
+.site-type-card.selected {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+}
+
+.site-type-card .type-check {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    color: var(--primary-color);
+    font-size: 1.25rem;
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.3s ease;
+}
+
+.site-type-card.selected .type-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.type-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.type-icon.static {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.type-icon.proxy {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.type-icon.balancer {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.type-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.type-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Configuration Cards */
+.config-card {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.config-header {
+    background: white;
+    padding: 1rem 1.25rem;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+}
+
+.config-body {
+    padding: 1.25rem;
 }
 
 .config-section {
-    animation: fadeIn 0.3s ease;
+    animation: slideIn 0.4s ease;
+}
+
+/* Alert Modern */
+.alert-modern {
+    border-radius: 0.75rem;
+    border: none;
+    padding: 1rem 1.25rem;
+    font-size: 0.95rem;
+}
+
+.alert-modern code {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary-color);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+/* Advanced Toggle */
+.advanced-toggle {
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.modern-check .form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid #cbd5e1;
+    border-radius: 0.375rem;
+}
+
+.modern-check .form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.modern-check .form-check-label {
+    margin-left: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.collapse-section {
+    margin-top: 1rem;
+}
+
+/* Code Editor */
+.code-editor {
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9rem;
+    background: #1e293b;
+    color: #e2e8f0;
+    border: none;
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+
+.code-editor:focus {
+    background: #1e293b;
+    color: #e2e8f0;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+/* Form Actions */
+.form-actions {
+    padding-top: 2rem;
+    border-top: 2px solid #f1f5f9;
+    margin-top: 2rem;
+}
+
+.button-group {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* Modern Buttons */
+.btn-modern {
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-modern::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-modern:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* Animations */
+.fade-in {
+    animation: fadeIn 0.6s ease;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0; 
+        transform: translateX(-20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateX(0); 
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dashboard-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .dashboard-title {
+        font-size: 1.5rem;
+    }
+    
+    .dashboard-subtitle {
+        font-size: 1rem;
+    }
+    
+    .modern-card .card-body {
+        padding: 2rem 1.5rem;
+    }
+    
+    .form-actions .d-flex {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .button-group .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .site-type-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .type-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+    
+    .config-header,
+    .config-body {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .section-number {
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+    }
+    
+    .modern-input {
+        padding: 0.625rem 0.875rem;
+    }
+    
+    .modern-input-group {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .modern-input-group .btn {
+        width: 100%;
+    }
 }
 </style>
 {% endblock %}
