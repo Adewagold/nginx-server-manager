@@ -136,8 +136,8 @@ The installation script automatically:
 - Tests SSL directory permissions
 
 ```bash
-git clone https://github.com/your-username/nginx-manager.git
-cd nginx-manager
+git clone https://github.com/Adewagold/nginx-server-manager.git
+cd nginx-server-manager
 chmod +x install.sh
 ./install.sh
 ```
@@ -159,8 +159,8 @@ chmod +x install.sh
 
 2. **Clone and Setup**
    ```bash
-   git clone https://github.com/your-username/nginx-manager.git
-   cd nginx-manager
+   git clone https://github.com/Adewagold/nginx-server-manager.git
+   cd nginx-server-manager
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
