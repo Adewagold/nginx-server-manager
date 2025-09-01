@@ -171,10 +171,29 @@ server {
             # Create a temporary PID file path for testing
             pid_file = os.path.join(temp_dir, "nginx.pid")
             
+            # Create temporary log directory
+            log_dir = os.path.join(temp_dir, "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Replace log paths in config content to use temp directory
+            # This prevents permission errors during validation
+            import re
+            modified_config = re.sub(
+                r'(access_log|error_log)\s+/var/log/nginx/([^;]+);',
+                rf'\1 {log_dir}/\2;',
+                config_content
+            )
+            
+            # Also replace port 80 and 443 with high ports for testing
+            # This prevents permission errors when testing without root
+            modified_config = re.sub(r'listen\s+80\b', 'listen 8080', modified_config)
+            modified_config = re.sub(r'listen\s+443\b', 'listen 8443', modified_config)
+            
             # Create minimal nginx.conf for testing
             test_nginx_conf = f"""
 pid {pid_file};
 worker_processes 1;
+error_log {log_dir}/error.log;
 
 events {{
     worker_connections 1024;
@@ -183,6 +202,7 @@ events {{
 http {{
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
+    access_log {log_dir}/access.log;
     
     # Include the server block to test
     include {temp_file};
@@ -193,9 +213,9 @@ http {{
             with open(main_conf_file, "w") as f:
                 f.write(test_nginx_conf)
             
-            # Write the server block to temporary file
+            # Write the modified server block to temporary file
             with open(temp_file, "w") as f:
-                f.write(config_content)
+                f.write(modified_config)
             
             # Test configuration using the temporary main config
             # Build command based on use_sudo setting
@@ -247,6 +267,18 @@ http {{
                         os.unlink(file_path)
                     except:
                         pass
+            
+            # Clean up log directory if it exists
+            if 'log_dir' in locals() and os.path.exists(log_dir):
+                try:
+                    # Remove any log files created during testing
+                    for log_file in os.listdir(log_dir):
+                        os.unlink(os.path.join(log_dir, log_file))
+                    os.rmdir(log_dir)
+                except:
+                    pass
+            
+            # Clean up temp directory
             if os.path.exists(temp_dir):
                 try:
                     os.rmdir(temp_dir)
