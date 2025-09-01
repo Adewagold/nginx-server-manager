@@ -715,6 +715,47 @@ def ensure_directories():
     """Ensure required directories exist."""
     os.makedirs("/var/run/nginx-manager", mode=0o755, exist_ok=True)
     os.makedirs("/var/log/nginx-manager", mode=0o755, exist_ok=True)
+    
+    # Set appropriate group ownership for the runtime directory
+    # This allows the main service user to write to the directory
+    import grp
+    import pwd
+    
+    try:
+        # Try to detect the service group from systemd service files
+        service_group = None
+        service_files = [
+            "/etc/systemd/system/nginx-manager.service",
+            "/etc/systemd/system/nginx-server-manager.service"
+        ]
+        
+        for service_file in service_files:
+            if os.path.exists(service_file):
+                with open(service_file, 'r') as f:
+                    for line in f:
+                        if line.strip().startswith('Group='):
+                            service_group = line.strip().split('=')[1]
+                            break
+                if service_group:
+                    break
+        
+        # Fallback to www-data if no service group found
+        if not service_group:
+            service_group = 'www-data'
+        
+        # Get the group ID
+        group_gid = grp.getgrnam(service_group).gr_gid
+        
+        # Change group ownership of runtime directory
+        os.chown("/var/run/nginx-manager", -1, group_gid)
+        
+        # Set permissions to allow group write access
+        os.chmod("/var/run/nginx-manager", 0o775)
+        
+        logger.info(f"Set runtime directory permissions for {service_group} group access")
+    except (KeyError, OSError) as e:
+        logger.warning(f"Could not set group permissions for runtime directory: {e}")
+        logger.info("Runtime directory will use default permissions")
 
 def execute_command(command):
     """Execute an nginx command and return the result."""
@@ -851,7 +892,7 @@ TimeoutStopSec=10
 
 # Create runtime directory
 RuntimeDirectory=nginx-manager
-RuntimeDirectoryMode=0755
+RuntimeDirectoryMode=0775
 
 [Install]
 WantedBy=multi-user.target
