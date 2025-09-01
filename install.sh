@@ -517,6 +517,10 @@ initialize_application() {
     if [[ ! -f config.yaml ]]; then
         print_info "Creating initial configuration..."
         cp config.yaml.example config.yaml
+        
+        # Set default admin password for initial setup
+        sed -i 's/CHANGE-THIS-TO-A-STRONG-PASSWORD!/AdminPass123!/' config.yaml
+        
         print_status "Configuration file created from template"
         print_warning "Please edit config.yaml to customize your settings"
     else
@@ -701,7 +705,7 @@ show_completion_message() {
     echo -e "${BLUE}1.${NC} Edit configuration: ${YELLOW}nano config.yaml${NC}"
     echo -e "${BLUE}2.${NC} Start the service: ${YELLOW}sudo systemctl start nginx-manager${NC}"
     echo -e "${BLUE}3.${NC} Access web interface: ${YELLOW}http://$server_ip:8080${NC}"
-    echo -e "${BLUE}4.${NC} Default login: ${YELLOW}admin${NC} / ${YELLOW}admin123${NC}"
+    echo -e "${BLUE}4.${NC} Default login: ${YELLOW}admin${NC} / ${YELLOW}AdminPass123!${NC}"
     
     echo -e "\n${CYAN}━━━ IMPORTANT SECURITY STEPS ━━━${NC}"
     echo -e "${RED}⚠${NC}  Change the default admin password in config.yaml"

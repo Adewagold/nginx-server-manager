@@ -358,7 +358,17 @@ http {{
             is_valid, message = self.test_nginx_config()
             if not is_valid:
                 # Check if this is a permission issue we can ignore
-                if "Permission denied" not in message and "no new privileges" not in message:
+                permission_errors = [
+                    "Permission denied",
+                    "no new privileges", 
+                    "Cannot use sudo",
+                    "restricted environment",
+                    "Authentication required",
+                    "Interactive authentication required"
+                ]
+                
+                is_permission_error = any(error in message for error in permission_errors)
+                if not is_permission_error:
                     # This is a real configuration error, not a permission issue
                     if os.path.exists(enabled_path):
                         os.unlink(enabled_path)
@@ -369,7 +379,18 @@ http {{
             reload_success, reload_message = self.reload_nginx()
             if not reload_success:
                 # Check if this is a permission issue that we can work around
-                if "manual nginx reload required" in reload_message or "nginx reload required" in reload_message:
+                permission_reload_errors = [
+                    "manual nginx reload required",
+                    "nginx reload required",
+                    "Cannot use sudo",
+                    "restricted environment",
+                    "insufficient permissions",
+                    "Authentication required",
+                    "Interactive authentication required"
+                ]
+                
+                is_permission_reload_error = any(error in reload_message for error in permission_reload_errors)
+                if is_permission_reload_error:
                     # Permission issue - site is enabled but nginx needs manual reload
                     self.site_model.enable(site_id)
                     return True, f"Site {site_name} enabled successfully. {reload_message}"
