@@ -38,10 +38,11 @@ class PathsConfig(BaseSettings):
 
 class NginxConfig(BaseSettings):
     """Nginx service commands configuration."""
-    test_command: str = "sudo nginx -t"
-    reload_command: str = "sudo systemctl reload nginx"
-    restart_command: str = "sudo systemctl restart nginx"
-    status_command: str = "sudo systemctl status nginx"
+    test_command: str = "nginx -t"
+    reload_command: str = "systemctl reload nginx"
+    restart_command: str = "systemctl restart nginx"
+    status_command: str = "systemctl status nginx"
+    use_sudo: bool = True  # Whether to use sudo for nginx commands
 
 
 class UploadConfig(BaseSettings):

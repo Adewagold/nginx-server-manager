@@ -45,17 +45,22 @@ paths:
 
 # Nginx service configuration
 nginx:
+  # Whether to use sudo for nginx commands
+  # Set to false when using wrapper script (recommended for production)
+  # Set to true when running in development or without wrapper
+  use_sudo: false
+  
   # Command to test nginx configuration
-  test_command: "sudo nginx -t"
+  test_command: "nginx -t"
   
   # Command to reload nginx
-  reload_command: "sudo systemctl reload nginx"
+  reload_command: "systemctl reload nginx"
   
   # Command to restart nginx
-  restart_command: "sudo systemctl restart nginx"
+  restart_command: "systemctl restart nginx"
   
   # Command to check nginx status
-  status_command: "sudo systemctl status nginx"
+  status_command: "systemctl status nginx"
 
 # File upload settings
 upload:

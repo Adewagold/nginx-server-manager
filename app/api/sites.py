@@ -647,15 +647,19 @@ async def test_site(
                 detail="Cannot test disabled site"
             )
         
-        # Determine the URL to test
+        # Test the local nginx server with the proper Host header
+        # This tests if nginx is properly configured for this site
         protocol = "https" if site['ssl_enabled'] else "http"
-        url = f"{protocol}://{site['domain']}"
+        port = 443 if site['ssl_enabled'] else 80
+        local_url = f"{protocol}://127.0.0.1:{port}/"
+        domain = site['domain']
         
         # Test the site
         start_time = time.time()
         try:
-            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                response = await client.get(url)
+            headers = {"Host": domain}
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=False, verify=False) as client:
+                response = await client.get(local_url, headers=headers)
                 response_time = time.time() - start_time
             
             # Determine test results
@@ -670,33 +674,36 @@ async def test_site(
             
             return {
                 "message": message,
-                "url": url,
+                "url": f"{protocol}://{domain} (tested via local nginx)",
                 "status_code": str(response.status_code),
                 "response_time": f"{response_time:.2f}s"
             }
             
-        except httpx.SSLError as e:
-            return {
-                "message": "SSL/TLS connection failed",
-                "url": url,
-                "error": "SSL certificate error or invalid SSL configuration"
-            }
         except httpx.ConnectError as e:
-            return {
-                "message": "Connection failed",
-                "url": url,
-                "error": "Could not connect to the site. Check if nginx is running and the site is properly configured."
-            }
+            # Handle SSL errors and other connection errors
+            error_msg = str(e)
+            if "ssl" in error_msg.lower() or "certificate" in error_msg.lower() or "tls" in error_msg.lower():
+                return {
+                    "message": "SSL/TLS connection failed",
+                    "url": f"{protocol}://{domain} (tested via local nginx)",
+                    "error": "SSL certificate error or invalid SSL configuration"
+                }
+            else:
+                return {
+                    "message": "Connection failed",
+                    "url": f"{protocol}://{domain} (tested via local nginx)",
+                    "error": "Could not connect to local nginx server. Check if nginx is running and the site is properly configured."
+                }
         except httpx.TimeoutException as e:
             return {
                 "message": "Request timed out",
-                "url": url,
-                "error": "Site did not respond within 10 seconds"
+                "url": f"{protocol}://{domain} (tested via local nginx)",
+                "error": "Local nginx server did not respond within 10 seconds"
             }
         except httpx.RequestError as e:
             return {
                 "message": "Test failed",
-                "url": url,
+                "url": f"{protocol}://{domain} (tested via local nginx)",
                 "error": str(e)
             }
     

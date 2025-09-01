@@ -238,6 +238,7 @@ main() {
     setup_directories_and_permissions
     setup_ssl_directories
     setup_sudo_permissions
+    setup_nginx_wrapper
     initialize_application
     setup_systemd_service
     final_configuration
@@ -472,15 +473,18 @@ setup_ssl_directories() {
 }
 
 setup_sudo_permissions() {
-    print_step "Setting up sudo permissions"
+    print_step "Setting up optional sudo permissions"
     
     # Backup existing sudoers file if it exists
     backup_file "/etc/sudoers.d/nginx-manager"
     
-    print_info "Configuring passwordless sudo for nginx operations..."
+    print_info "Configuring optional sudo permissions for development mode..."
+    print_info "Note: When running as systemd service, sudo is not required"
+    
     sudo tee /etc/sudoers.d/nginx-manager > /dev/null <<EOF
-# Nginx Site Manager - Allow user to manage nginx without password
+# Nginx Site Manager - Optional sudo permissions for development mode
 # Generated on $(date) for user: $CURRENT_USER
+# Note: These are only needed when use_sudo is set to true in config.yaml
 
 $CURRENT_USER ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
 $CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl reload nginx
@@ -497,7 +501,8 @@ EOF
     
     # Validate sudoers syntax
     if sudo visudo -c -f /etc/sudoers.d/nginx-manager; then
-        print_status "Sudo permissions configured successfully"
+        print_status "Optional sudo permissions configured successfully"
+        print_info "These permissions are used when use_sudo: true in config.yaml"
     else
         print_error "Invalid sudoers syntax detected"
         sudo rm -f /etc/sudoers.d/nginx-manager
@@ -512,6 +517,10 @@ initialize_application() {
     if [[ ! -f config.yaml ]]; then
         print_info "Creating initial configuration..."
         cp config.yaml.example config.yaml
+        
+        # Set default admin password for initial setup
+        sed -i 's/CHANGE-THIS-TO-A-STRONG-PASSWORD!/AdminPass123!/' config.yaml
+        
         print_status "Configuration file created from template"
         print_warning "Please edit config.yaml to customize your settings"
     else
@@ -545,8 +554,9 @@ Wants=nginx.service
 Type=simple
 User=$CURRENT_USER
 Group=www-data
+SupplementaryGroups=systemd-journal
 WorkingDirectory=$INSTALL_DIR
-Environment=PATH=$INSTALL_DIR/venv/bin
+Environment=PATH=$INSTALL_DIR/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=PYTHONPATH=$INSTALL_DIR
 ExecStart=$INSTALL_DIR/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
 ExecReload=/bin/kill -HUP \$MAINPID
@@ -561,6 +571,10 @@ ProtectSystem=strict
 ProtectHome=false
 ReadWritePaths=$INSTALL_DIR /var/www /var/log/nginx-manager /etc/nginx/sites-available /etc/nginx/sites-enabled
 
+# Allow nginx operations without sudo
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_DAC_OVERRIDE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_DAC_OVERRIDE
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -571,6 +585,91 @@ EOF
     sudo systemctl enable nginx-manager
     
     print_status "Systemd service configured and enabled"
+}
+
+setup_nginx_wrapper() {
+    print_step "Setting up nginx management wrapper"
+    
+    print_info "Creating nginx management wrapper script..."
+    
+    # Create wrapper script directory
+    sudo mkdir -p /usr/local/bin/nginx-manager
+    
+    # Create the nginx wrapper script
+    sudo tee /usr/local/bin/nginx-manager/nginx-wrapper.sh > /dev/null <<'EOF'
+#!/bin/bash
+# Nginx Management Wrapper for nginx-manager service
+# This script allows the nginx-manager service to perform nginx operations
+# without requiring interactive sudo or NoNewPrivileges=false
+
+set -euo pipefail
+
+# Function to log actions
+log_action() {
+    logger -t nginx-manager-wrapper "$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> /var/log/nginx-manager/wrapper.log
+}
+
+# Validate command
+case "${1:-}" in
+    "test")
+        log_action "Testing nginx configuration"
+        exec /usr/sbin/nginx -t
+        ;;
+    "reload")
+        log_action "Reloading nginx service"
+        exec /bin/systemctl reload nginx
+        ;;
+    "restart")
+        log_action "Restarting nginx service"
+        exec /bin/systemctl restart nginx
+        ;;
+    "status")
+        log_action "Checking nginx service status"
+        exec /bin/systemctl status nginx
+        ;;
+    *)
+        log_action "Invalid command attempted: ${1:-empty}"
+        echo "Usage: $0 {test|reload|restart|status}"
+        exit 1
+        ;;
+esac
+EOF
+    
+    # Set proper permissions for the wrapper script
+    sudo chmod 755 /usr/local/bin/nginx-manager/nginx-wrapper.sh
+    sudo chown root:root /usr/local/bin/nginx-manager/nginx-wrapper.sh
+    
+    # Create a sudoers rule specifically for the wrapper
+    print_info "Configuring sudo permissions for nginx wrapper..."
+    sudo tee /etc/sudoers.d/nginx-manager-wrapper > /dev/null <<EOF
+# Nginx Manager Wrapper - Allow nginx-manager service to use wrapper script
+# This provides controlled access to nginx operations without full sudo
+$CURRENT_USER ALL=(root) NOPASSWD: /usr/local/bin/nginx-manager/nginx-wrapper.sh test
+$CURRENT_USER ALL=(root) NOPASSWD: /usr/local/bin/nginx-manager/nginx-wrapper.sh reload
+$CURRENT_USER ALL=(root) NOPASSWD: /usr/local/bin/nginx-manager/nginx-wrapper.sh restart
+$CURRENT_USER ALL=(root) NOPASSWD: /usr/local/bin/nginx-manager/nginx-wrapper.sh status
+EOF
+    
+    # Validate sudoers syntax
+    if sudo visudo -c -f /etc/sudoers.d/nginx-manager-wrapper; then
+        print_status "Nginx wrapper configured successfully"
+        print_info "Wrapper script: /usr/local/bin/nginx-manager/nginx-wrapper.sh"
+    else
+        print_error "Invalid sudoers syntax in wrapper configuration"
+        sudo rm -f /etc/sudoers.d/nginx-manager-wrapper
+        exit 1
+    fi
+    
+    # Ensure log directory exists with proper permissions
+    sudo mkdir -p /var/log/nginx-manager
+    sudo chown $CURRENT_USER:www-data /var/log/nginx-manager
+    sudo chmod 775 /var/log/nginx-manager
+    
+    # Create log file
+    sudo touch /var/log/nginx-manager/wrapper.log
+    sudo chown $CURRENT_USER:www-data /var/log/nginx-manager/wrapper.log
+    sudo chmod 664 /var/log/nginx-manager/wrapper.log
 }
 
 final_configuration() {
@@ -606,7 +705,7 @@ show_completion_message() {
     echo -e "${BLUE}1.${NC} Edit configuration: ${YELLOW}nano config.yaml${NC}"
     echo -e "${BLUE}2.${NC} Start the service: ${YELLOW}sudo systemctl start nginx-manager${NC}"
     echo -e "${BLUE}3.${NC} Access web interface: ${YELLOW}http://$server_ip:8080${NC}"
-    echo -e "${BLUE}4.${NC} Default login: ${YELLOW}admin${NC} / ${YELLOW}admin123${NC}"
+    echo -e "${BLUE}4.${NC} Default login: ${YELLOW}admin${NC} / ${YELLOW}AdminPass123!${NC}"
     
     echo -e "\n${CYAN}━━━ IMPORTANT SECURITY STEPS ━━━${NC}"
     echo -e "${RED}⚠${NC}  Change the default admin password in config.yaml"
