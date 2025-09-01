@@ -46,21 +46,21 @@ paths:
 # Nginx service configuration
 nginx:
   # Whether to use sudo for nginx commands
-  # Set to false when running as systemd service with NoNewPrivileges=true
-  # Set to true when running in development or without systemd
-  use_sudo: false
+  # Set to false when using wrapper script (recommended for production)
+  # Set to true when running in development or without wrapper
+  use_sudo: true
   
   # Command to test nginx configuration
-  test_command: "nginx -t"
+  test_command: "sudo /usr/local/bin/nginx-manager/nginx-wrapper.sh test"
   
   # Command to reload nginx
-  reload_command: "systemctl reload nginx"
+  reload_command: "sudo /usr/local/bin/nginx-manager/nginx-wrapper.sh reload"
   
   # Command to restart nginx
-  restart_command: "systemctl restart nginx"
+  restart_command: "sudo /usr/local/bin/nginx-manager/nginx-wrapper.sh restart"
   
   # Command to check nginx status
-  status_command: "systemctl status nginx"
+  status_command: "sudo /usr/local/bin/nginx-manager/nginx-wrapper.sh status"
 
 # File upload settings
 upload:
