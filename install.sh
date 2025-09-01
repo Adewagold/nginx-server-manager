@@ -239,6 +239,7 @@ main() {
     setup_ssl_directories
     setup_sudo_permissions
     setup_nginx_wrapper
+    setup_privileged_service
     initialize_application
     setup_systemd_service
     final_configuration
@@ -565,11 +566,11 @@ RestartSec=3
 TimeoutStopSec=10
 
 # Security settings
-NoNewPrivileges=true
+# NoNewPrivileges=true  # Disabled to allow nginx wrapper script with sudo
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=$INSTALL_DIR /var/www /var/log/nginx-manager /etc/nginx/sites-available /etc/nginx/sites-enabled
+ReadWritePaths=$INSTALL_DIR /var/www /var/log/nginx-manager /etc/nginx/sites-available /etc/nginx/sites-enabled /var/run/nginx-manager
 
 # Allow nginx operations without sudo
 AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_DAC_OVERRIDE
@@ -672,6 +673,238 @@ EOF
     sudo chmod 664 /var/log/nginx-manager/wrapper.log
 }
 
+setup_privileged_service() {
+    print_step "Setting up privileged nginx service"
+    
+    print_info "Creating privileged nginx manager service..."
+    
+    # Create the privileged service script
+    sudo tee /usr/local/bin/nginx-manager/nginx-manager.py > /dev/null << 'PRIVILEGED_SCRIPT_EOF'
+#!/usr/bin/env python3
+"""
+Nginx Manager Service - A privileged service for nginx operations.
+This service runs with elevated privileges and accepts commands via a file interface.
+"""
+
+import os
+import sys
+import time
+import subprocess
+import json
+import logging
+from pathlib import Path
+
+# Configuration
+COMMAND_FILE = "/var/run/nginx-manager/command"
+RESULT_FILE = "/var/run/nginx-manager/result"
+LOCK_FILE = "/var/run/nginx-manager/lock"
+LOG_FILE = "/var/log/nginx-manager/service.log"
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def ensure_directories():
+    """Ensure required directories exist."""
+    os.makedirs("/var/run/nginx-manager", mode=0o755, exist_ok=True)
+    os.makedirs("/var/log/nginx-manager", mode=0o755, exist_ok=True)
+    
+    # Set appropriate group ownership for the runtime directory
+    # This allows the main service user to write to the directory
+    import grp
+    import pwd
+    
+    try:
+        # Try to detect the service group from systemd service files
+        service_group = None
+        service_files = [
+            "/etc/systemd/system/nginx-manager.service",
+            "/etc/systemd/system/nginx-server-manager.service"
+        ]
+        
+        for service_file in service_files:
+            if os.path.exists(service_file):
+                with open(service_file, 'r') as f:
+                    for line in f:
+                        if line.strip().startswith('Group='):
+                            service_group = line.strip().split('=')[1]
+                            break
+                if service_group:
+                    break
+        
+        # Fallback to www-data if no service group found
+        if not service_group:
+            service_group = 'www-data'
+        
+        # Get the group ID
+        group_gid = grp.getgrnam(service_group).gr_gid
+        
+        # Change group ownership of runtime directory
+        os.chown("/var/run/nginx-manager", -1, group_gid)
+        
+        # Set permissions to allow group write access
+        os.chmod("/var/run/nginx-manager", 0o775)
+        
+        logger.info(f"Set runtime directory permissions for {service_group} group access")
+    except (KeyError, OSError) as e:
+        logger.warning(f"Could not set group permissions for runtime directory: {e}")
+        logger.info("Runtime directory will use default permissions")
+
+def execute_command(command):
+    """Execute an nginx command and return the result."""
+    try:
+        if command == "test":
+            result = subprocess.run(
+                ["nginx", "-t"],
+                capture_output=True,
+                text=True
+            )
+        elif command == "reload":
+            result = subprocess.run(
+                ["systemctl", "reload", "nginx"],
+                capture_output=True,
+                text=True
+            )
+        elif command == "restart":
+            result = subprocess.run(
+                ["systemctl", "restart", "nginx"],
+                capture_output=True,
+                text=True
+            )
+        elif command == "status":
+            result = subprocess.run(
+                ["systemctl", "status", "nginx"],
+                capture_output=True,
+                text=True
+            )
+        else:
+            return {
+                "success": False,
+                "message": f"Unknown command: {command}",
+                "returncode": 1
+            }
+        
+        return {
+            "success": result.returncode == 0,
+            "message": result.stdout or result.stderr,
+            "returncode": result.returncode
+        }
+        
+    except Exception as e:
+        logger.error(f"Error executing command {command}: {e}")
+        return {
+            "success": False,
+            "message": str(e),
+            "returncode": 1
+        }
+
+def process_command_file():
+    """Process a command from the command file and write result."""
+    try:
+        # Read command
+        with open(COMMAND_FILE, 'r') as f:
+            command = f.read().strip()
+        
+        logger.info(f"Processing command: {command}")
+        
+        # Execute command
+        result = execute_command(command)
+        
+        # Write result
+        with open(RESULT_FILE, 'w') as f:
+            json.dump(result, f)
+        
+        # Remove command file to indicate completion
+        os.unlink(COMMAND_FILE)
+        
+        logger.info(f"Command {command} completed with result: {result['success']}")
+        
+    except Exception as e:
+        logger.error(f"Error processing command: {e}")
+        # Write error result
+        try:
+            with open(RESULT_FILE, 'w') as f:
+                json.dump({
+                    "success": False,
+                    "message": str(e),
+                    "returncode": 1
+                }, f)
+        except:
+            pass
+
+def main():
+    """Main service loop."""
+    logger.info("Starting nginx manager service")
+    ensure_directories()
+    
+    while True:
+        try:
+            # Check for command file
+            if os.path.exists(COMMAND_FILE):
+                # Use lock file to prevent race conditions
+                if not os.path.exists(LOCK_FILE):
+                    Path(LOCK_FILE).touch()
+                    try:
+                        process_command_file()
+                    finally:
+                        if os.path.exists(LOCK_FILE):
+                            os.unlink(LOCK_FILE)
+            
+            time.sleep(0.5)  # Short polling interval
+            
+        except KeyboardInterrupt:
+            logger.info("Shutting down nginx manager service")
+            break
+        except Exception as e:
+            logger.error(f"Unexpected error in main loop: {e}")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
+PRIVILEGED_SCRIPT_EOF
+    
+    # Set executable permissions
+    sudo chmod +x /usr/local/bin/nginx-manager/nginx-manager.py
+    
+    # Create systemd service file for the privileged service
+    print_info "Creating privileged nginx manager systemd service..."
+    sudo tee /etc/systemd/system/nginx-manager-privileged.service > /dev/null << 'PRIVILEGED_SERVICE_EOF'
+[Unit]
+Description=Nginx Manager Privileged Service
+After=nginx.service
+Wants=nginx.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/nginx-manager/nginx-manager.py
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+
+# Create runtime directory
+RuntimeDirectory=nginx-manager
+RuntimeDirectoryMode=0775
+
+[Install]
+WantedBy=multi-user.target
+PRIVILEGED_SERVICE_EOF
+    
+    # Reload systemd and enable the privileged service
+    print_info "Enabling privileged nginx manager service..."
+    sudo systemctl daemon-reload
+    sudo systemctl enable nginx-manager-privileged
+    
+    print_status "Privileged nginx service configured successfully"
+}
 final_configuration() {
     print_step "Finalizing configuration"
     
@@ -683,6 +916,15 @@ final_configuration() {
         print_status "Nginx service started and enabled"
     else
         print_info "Nginx service is already running"
+    fi
+    
+    # Start the privileged nginx manager service
+    print_info "Starting privileged nginx manager service..."
+    sudo systemctl start nginx-manager-privileged
+    if systemctl is-active --quiet nginx-manager-privileged; then
+        print_status "Privileged nginx manager service started successfully"
+    else
+        print_warning "Privileged nginx manager service failed to start"
     fi
     
     # Validate nginx configuration
@@ -714,9 +956,11 @@ show_completion_message() {
     echo -e "${YELLOW}⚠${NC}  For production SSL, remove --staging flag from SSL service"
     
     echo -e "\n${CYAN}━━━ SERVICE MANAGEMENT ━━━${NC}"
-    echo -e "${BLUE}•${NC} Check status: ${YELLOW}sudo systemctl status nginx-manager${NC}"
-    echo -e "${BLUE}•${NC} View logs: ${YELLOW}sudo journalctl -u nginx-manager -f${NC}"
-    echo -e "${BLUE}•${NC} Restart service: ${YELLOW}sudo systemctl restart nginx-manager${NC}"
+    echo -e "${BLUE}•${NC} Check main service: ${YELLOW}sudo systemctl status nginx-manager${NC}"
+    echo -e "${BLUE}•${NC} Check privileged service: ${YELLOW}sudo systemctl status nginx-manager-privileged${NC}"
+    echo -e "${BLUE}•${NC} View main logs: ${YELLOW}sudo journalctl -u nginx-manager -f${NC}"
+    echo -e "${BLUE}•${NC} View privileged logs: ${YELLOW}sudo journalctl -u nginx-manager-privileged -f${NC}"
+    echo -e "${BLUE}•${NC} Restart services: ${YELLOW}sudo systemctl restart nginx-manager nginx-manager-privileged${NC}"
     
     echo -e "\n${CYAN}━━━ FEATURES AVAILABLE ━━━${NC}"
     echo -e "${GREEN}✓${NC} Site Management (Static, Proxy, Load Balancer)"

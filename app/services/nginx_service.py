@@ -6,6 +6,8 @@ Handles nginx configuration generation, validation, and service management.
 import os
 import subprocess
 import shutil
+import json
+import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from jinja2 import Environment, FileSystemLoader, Template
@@ -21,6 +23,42 @@ class NginxService:
         self.config = get_config()
         self.site_model = get_site_model()
         self._setup_templates()
+        
+        # Privileged service communication
+        self.command_file = "/var/run/nginx-manager/command"
+        self.result_file = "/var/run/nginx-manager/result"
+    
+    def _call_privileged_service(self, command: str, timeout: int = 10) -> Tuple[bool, str]:
+        """Call the privileged nginx manager service."""
+        try:
+            # Remove any existing result file
+            if os.path.exists(self.result_file):
+                os.unlink(self.result_file)
+            
+            # Write command to command file
+            with open(self.command_file, 'w') as f:
+                f.write(command)
+            
+            # Wait for result with timeout
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                if os.path.exists(self.result_file):
+                    # Read result
+                    with open(self.result_file, 'r') as f:
+                        result = json.load(f)
+                    
+                    # Clean up result file
+                    os.unlink(self.result_file)
+                    
+                    return result['success'], result['message']
+                
+                time.sleep(0.1)
+            
+            # Timeout occurred
+            return False, f"Timeout waiting for privileged service response to '{command}'"
+            
+        except Exception as e:
+            return False, f"Error communicating with privileged service: {str(e)}"
     
     def _setup_templates(self):
         """Setup Jinja2 templating environment."""
@@ -488,50 +526,31 @@ http {{
     
     def test_nginx_config(self) -> Tuple[bool, str]:
         """Test nginx configuration."""
+        # Try privileged service first
+        if os.path.exists(self.command_file.rsplit('/', 1)[0]):  # Check if run directory exists
+            return self._call_privileged_service("test")
+        
+        # Fallback to old method if privileged service not available
         try:
-            # Use nginx wrapper script for test operations
             wrapper_script = "/usr/local/bin/nginx-manager/nginx-wrapper.sh"
-            if os.path.exists(wrapper_script):
-                command = ["sudo", wrapper_script, "test"]
-            else:
-                # Fallback to direct command if wrapper doesn't exist
-                if self.config.nginx.use_sudo:
-                    command = ["sudo"] + self.config.nginx.test_command.split()
-                else:
-                    command = self.config.nginx.test_command.split()
             
-            # Try to run the command
-            try:
-                result = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True
-                )
-            except (PermissionError, FileNotFoundError) as e:
-                # If wrapper script fails, try fallback method
-                if os.path.exists(wrapper_script):
-                    try:
-                        if self.config.nginx.use_sudo:
-                            command = ["sudo"] + self.config.nginx.test_command.split()
-                        else:
-                            command = self.config.nginx.test_command.split()
-                        result = subprocess.run(
-                            command,
-                            capture_output=True,
-                            text=True
-                        )
-                    except Exception:
-                        raise e
-                else:
-                    raise e
+            if os.path.exists(wrapper_script):
+                try:
+                    command = ["sudo", wrapper_script, "test"]
+                    result = subprocess.run(command, capture_output=True, text=True)
+                    
+                    if result.returncode != 0 and "no new privileges" in result.stderr:
+                        result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
+                except Exception:
+                    result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
+            else:
+                result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
             
             if result.returncode == 0:
                 return True, "Nginx configuration test passed"
             else:
-                # Check for "no new privileges" error
-                if "no new privileges" in result.stderr:
-                    return False, "Cannot use sudo: Running in restricted environment. Please ensure proper file permissions are set."
-                return False, result.stderr
+                error_msg = result.stderr.strip() or result.stdout.strip()
+                return False, f"Nginx config test failed: {error_msg}"
         
         except Exception as e:
             return False, f"Error testing nginx configuration: {str(e)}"
@@ -539,38 +558,46 @@ http {{
     def test_config(self) -> Tuple[bool, str]:
         """Test nginx configuration syntax."""
         try:
-            # Build command based on use_sudo setting
-            if self.config.nginx.use_sudo:
-                command = ["sudo"] + self.config.nginx.test_command.split()
-            else:
-                command = self.config.nginx.test_command.split()
+            # Try different approaches based on environment restrictions
+            wrapper_script = "/usr/local/bin/nginx-manager/nginx-wrapper.sh"
             
-            # Try to run the command
-            try:
-                result = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True
-                )
-            except (PermissionError, FileNotFoundError) as e:
-                # If running without sudo fails, try with sudo
-                if not self.config.nginx.use_sudo:
-                    command = ["sudo"] + self.config.nginx.test_command.split()
+            # First try: wrapper script with sudo (works in normal environment)
+            if os.path.exists(wrapper_script):
+                try:
+                    command = ["sudo", wrapper_script, "test"]
                     result = subprocess.run(
                         command,
                         capture_output=True,
                         text=True
                     )
-                else:
-                    raise e
+                    
+                    # If sudo fails due to NoNewPrivileges, try direct nginx command
+                    if result.returncode != 0 and "no new privileges" in result.stderr:
+                        result = subprocess.run(
+                            ["nginx", "-t"],
+                            capture_output=True,
+                            text=True
+                        )
+                except Exception:
+                    # If wrapper fails completely, try direct nginx command
+                    result = subprocess.run(
+                        ["nginx", "-t"],
+                        capture_output=True,
+                        text=True
+                    )
+            else:
+                # Fallback: try direct nginx command
+                result = subprocess.run(
+                    ["nginx", "-t"],
+                    capture_output=True,
+                    text=True
+                )
             
             if result.returncode == 0:
                 return True, "Nginx configuration syntax is valid"
             else:
-                # Check for "no new privileges" error
-                if "no new privileges" in result.stderr:
-                    return False, "Cannot use sudo: Running in restricted environment. Please ensure proper file permissions are set."
-                return False, result.stderr
+                error_msg = result.stderr.strip() or result.stdout.strip()
+                return False, f"Nginx config test failed: {error_msg}"
         
         except Exception as e:
             return False, f"Error testing nginx configuration: {str(e)}"
@@ -578,58 +605,34 @@ http {{
     def reload_nginx(self) -> Tuple[bool, str]:
         """Reload nginx service with config validation."""
         try:
-            # First, test the nginx configuration using wrapper script
+            # First, test the nginx configuration
             test_valid, test_msg = self.test_nginx_config()
             if not test_valid:
-                # Check if it's just a permission issue
-                if "Permission denied" not in test_msg and "no new privileges" not in test_msg:
-                    return False, f"Nginx config test failed: {test_msg}"
-                # Skip test if permissions are insufficient but continue with reload
+                return False, f"Nginx config test failed: {test_msg}"
             
-            # Use nginx wrapper script for reload operations
+            # Try privileged service first
+            if os.path.exists(self.command_file.rsplit('/', 1)[0]):  # Check if run directory exists
+                return self._call_privileged_service("reload")
+            
+            # Fallback to old method if privileged service not available
             wrapper_script = "/usr/local/bin/nginx-manager/nginx-wrapper.sh"
-            if os.path.exists(wrapper_script):
-                # Always use sudo with wrapper - it has specific sudoers permissions
-                reload_command = ["sudo", wrapper_script, "reload"]
-            else:
-                # Fallback to direct command if wrapper doesn't exist
-                if self.config.nginx.use_sudo:
-                    reload_command = ["sudo"] + self.config.nginx.reload_command.split()
-                else:
-                    reload_command = self.config.nginx.reload_command.split()
             
-            # Try to reload nginx
-            try:
-                reload_result = subprocess.run(
-                    reload_command,
-                    capture_output=True,
-                    text=True
-                )
-            except (PermissionError, FileNotFoundError) as e:
-                # If wrapper script fails, try fallback method
-                if os.path.exists(wrapper_script):
-                    try:
-                        if self.config.nginx.use_sudo:
-                            reload_command = ["sudo"] + self.config.nginx.reload_command.split()
-                        else:
-                            reload_command = self.config.nginx.reload_command.split()
-                        reload_result = subprocess.run(
-                            reload_command,
-                            capture_output=True,
-                            text=True
-                        )
-                    except Exception:
-                        return False, "Cannot reload nginx: insufficient permissions. Site enabled but nginx reload required."
-                else:
-                    return False, "Cannot reload nginx: insufficient permissions. Site enabled but nginx reload required."
+            if os.path.exists(wrapper_script):
+                try:
+                    reload_command = ["sudo", wrapper_script, "reload"]
+                    reload_result = subprocess.run(reload_command, capture_output=True, text=True)
+                    
+                    if reload_result.returncode != 0 and "no new privileges" in reload_result.stderr:
+                        reload_result = subprocess.run(["nginx", "-s", "reload"], capture_output=True, text=True)
+                except Exception:
+                    reload_result = subprocess.run(["nginx", "-s", "reload"], capture_output=True, text=True)
+            else:
+                reload_result = subprocess.run(["nginx", "-s", "reload"], capture_output=True, text=True)
             
             if reload_result.returncode == 0:
                 return True, "Nginx reloaded successfully"
             else:
                 error_msg = reload_result.stderr.strip() or reload_result.stdout.strip()
-                # Check for "no new privileges" or authentication errors
-                if any(phrase in error_msg for phrase in ["no new privileges", "Interactive authentication required", "Authentication required"]):
-                    return False, "Cannot reload nginx: running in restricted environment. Site enabled but manual nginx reload required."
                 return False, f"Nginx reload failed: {error_msg}"
         
         except Exception as e:
