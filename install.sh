@@ -472,15 +472,18 @@ setup_ssl_directories() {
 }
 
 setup_sudo_permissions() {
-    print_step "Setting up sudo permissions"
+    print_step "Setting up optional sudo permissions"
     
     # Backup existing sudoers file if it exists
     backup_file "/etc/sudoers.d/nginx-manager"
     
-    print_info "Configuring passwordless sudo for nginx operations..."
+    print_info "Configuring optional sudo permissions for development mode..."
+    print_info "Note: When running as systemd service, sudo is not required"
+    
     sudo tee /etc/sudoers.d/nginx-manager > /dev/null <<EOF
-# Nginx Site Manager - Allow user to manage nginx without password
+# Nginx Site Manager - Optional sudo permissions for development mode
 # Generated on $(date) for user: $CURRENT_USER
+# Note: These are only needed when use_sudo is set to true in config.yaml
 
 $CURRENT_USER ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
 $CURRENT_USER ALL=(ALL) NOPASSWD: /bin/systemctl reload nginx
@@ -497,7 +500,8 @@ EOF
     
     # Validate sudoers syntax
     if sudo visudo -c -f /etc/sudoers.d/nginx-manager; then
-        print_status "Sudo permissions configured successfully"
+        print_status "Optional sudo permissions configured successfully"
+        print_info "These permissions are used when use_sudo: true in config.yaml"
     else
         print_error "Invalid sudoers syntax detected"
         sudo rm -f /etc/sudoers.d/nginx-manager
@@ -545,6 +549,7 @@ Wants=nginx.service
 Type=simple
 User=$CURRENT_USER
 Group=www-data
+SupplementaryGroups=systemd-journal
 WorkingDirectory=$INSTALL_DIR
 Environment=PATH=$INSTALL_DIR/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=PYTHONPATH=$INSTALL_DIR
@@ -560,6 +565,10 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=false
 ReadWritePaths=$INSTALL_DIR /var/www /var/log/nginx-manager /etc/nginx/sites-available /etc/nginx/sites-enabled
+
+# Allow nginx operations without sudo
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_DAC_OVERRIDE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_DAC_OVERRIDE
 
 [Install]
 WantedBy=multi-user.target

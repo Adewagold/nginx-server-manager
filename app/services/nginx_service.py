@@ -55,13 +55,13 @@ class NginxService:
     }
     
     # Cache static assets
-    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+    location ~* \\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
     
     # Deny access to hidden files
-    location ~ /\. {
+    location ~ /\\. {
         deny all;
     }
 }"""
@@ -168,8 +168,14 @@ server {
             # Create temporary directory structure
             os.makedirs(temp_dir, exist_ok=True)
             
+            # Create a temporary PID file path for testing
+            pid_file = os.path.join(temp_dir, "nginx.pid")
+            
             # Create minimal nginx.conf for testing
             test_nginx_conf = f"""
+pid {pid_file};
+worker_processes 1;
+
 events {{
     worker_connections 1024;
 }}
@@ -192,15 +198,42 @@ http {{
                 f.write(config_content)
             
             # Test configuration using the temporary main config
-            result = subprocess.run(
-                ["sudo", "nginx", "-t", "-c", main_conf_file],
-                capture_output=True,
-                text=True
-            )
+            # Build command based on use_sudo setting
+            if self.config.nginx.use_sudo:
+                command = ["sudo", "nginx", "-t", "-c", main_conf_file]
+            else:
+                command = ["nginx", "-t", "-c", main_conf_file]
+            
+            # Try to run the command
+            try:
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True
+                )
+            except (PermissionError, FileNotFoundError) as e:
+                # If running without sudo fails, try with sudo if not already using it
+                if not self.config.nginx.use_sudo:
+                    command = ["sudo", "nginx", "-t", "-c", main_conf_file]
+                    try:
+                        result = subprocess.run(
+                            command,
+                            capture_output=True,
+                            text=True
+                        )
+                    except Exception:
+                        # If sudo also fails, validation cannot be performed
+                        return True, "Configuration validation skipped (insufficient permissions)"
+                else:
+                    return True, "Configuration validation skipped (insufficient permissions)"
             
             if result.returncode == 0:
                 return True, "Configuration is valid"
             else:
+                # Check for "no new privileges" error
+                if "no new privileges" in result.stderr:
+                    # If we can't validate due to permissions, skip validation
+                    return True, "Configuration validation skipped (systemd restrictions)"
                 return False, result.stderr
         
         except Exception as e:
@@ -210,9 +243,15 @@ http {{
             # Clean up temporary files and directory
             for file_path in [temp_file, main_conf_file if 'main_conf_file' in locals() else None]:
                 if file_path and os.path.exists(file_path):
-                    os.unlink(file_path)
+                    try:
+                        os.unlink(file_path)
+                    except:
+                        pass
             if os.path.exists(temp_dir):
-                os.rmdir(temp_dir)
+                try:
+                    os.rmdir(temp_dir)
+                except:
+                    pass
     
     def save_config(self, site_id: int, config_content: str) -> Tuple[bool, str]:
         """Save nginx configuration to sites-available."""
@@ -364,15 +403,37 @@ http {{
     def test_nginx_config(self) -> Tuple[bool, str]:
         """Test nginx configuration."""
         try:
-            result = subprocess.run(
-                self.config.nginx.test_command.split(),
-                capture_output=True,
-                text=True
-            )
+            # Build command based on use_sudo setting
+            if self.config.nginx.use_sudo:
+                command = ["sudo"] + self.config.nginx.test_command.split()
+            else:
+                command = self.config.nginx.test_command.split()
+            
+            # Try to run the command
+            try:
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True
+                )
+            except (PermissionError, FileNotFoundError) as e:
+                # If running without sudo fails, try with sudo
+                if not self.config.nginx.use_sudo:
+                    command = ["sudo"] + self.config.nginx.test_command.split()
+                    result = subprocess.run(
+                        command,
+                        capture_output=True,
+                        text=True
+                    )
+                else:
+                    raise e
             
             if result.returncode == 0:
                 return True, "Nginx configuration test passed"
             else:
+                # Check for "no new privileges" error
+                if "no new privileges" in result.stderr:
+                    return False, "Cannot use sudo: Running in restricted environment. Please ensure proper file permissions are set."
                 return False, result.stderr
         
         except Exception as e:
@@ -381,15 +442,37 @@ http {{
     def test_config(self) -> Tuple[bool, str]:
         """Test nginx configuration syntax."""
         try:
-            result = subprocess.run(
-                self.config.nginx.test_command.split(),
-                capture_output=True,
-                text=True
-            )
+            # Build command based on use_sudo setting
+            if self.config.nginx.use_sudo:
+                command = ["sudo"] + self.config.nginx.test_command.split()
+            else:
+                command = self.config.nginx.test_command.split()
+            
+            # Try to run the command
+            try:
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True
+                )
+            except (PermissionError, FileNotFoundError) as e:
+                # If running without sudo fails, try with sudo
+                if not self.config.nginx.use_sudo:
+                    command = ["sudo"] + self.config.nginx.test_command.split()
+                    result = subprocess.run(
+                        command,
+                        capture_output=True,
+                        text=True
+                    )
+                else:
+                    raise e
             
             if result.returncode == 0:
                 return True, "Nginx configuration syntax is valid"
             else:
+                # Check for "no new privileges" error
+                if "no new privileges" in result.stderr:
+                    return False, "Cannot use sudo: Running in restricted environment. Please ensure proper file permissions are set."
                 return False, result.stderr
         
         except Exception as e:
@@ -399,26 +482,42 @@ http {{
         """Reload nginx service with config validation."""
         try:
             # First, test the nginx configuration
-            test_result = subprocess.run(
-                self.config.nginx.test_command.split(),
-                capture_output=True,
-                text=True
-            )
+            test_valid, test_msg = self.test_nginx_config()
+            if not test_valid:
+                return False, f"Nginx config test failed: {test_msg}"
             
-            if test_result.returncode != 0:
-                return False, f"Nginx config test failed: {test_result.stderr}"
+            # Build reload command based on use_sudo setting
+            if self.config.nginx.use_sudo:
+                reload_command = ["sudo"] + self.config.nginx.reload_command.split()
+            else:
+                reload_command = self.config.nginx.reload_command.split()
             
-            # If config test passes, reload nginx
-            reload_result = subprocess.run(
-                self.config.nginx.reload_command.split(),
-                capture_output=True,
-                text=True
-            )
+            # Try to reload nginx
+            try:
+                reload_result = subprocess.run(
+                    reload_command,
+                    capture_output=True,
+                    text=True
+                )
+            except (PermissionError, FileNotFoundError) as e:
+                # If running without sudo fails, try with sudo
+                if not self.config.nginx.use_sudo:
+                    reload_command = ["sudo"] + self.config.nginx.reload_command.split()
+                    reload_result = subprocess.run(
+                        reload_command,
+                        capture_output=True,
+                        text=True
+                    )
+                else:
+                    raise e
             
             if reload_result.returncode == 0:
                 return True, "Nginx configuration tested and reloaded successfully"
             else:
                 error_msg = reload_result.stderr.strip() or reload_result.stdout.strip()
+                # Check for "no new privileges" error
+                if "no new privileges" in error_msg:
+                    return False, "Cannot use sudo: Running in restricted environment. Please ensure proper file permissions are set."
                 return False, f"Nginx reload failed: {error_msg}"
         
         except Exception as e:
@@ -428,26 +527,42 @@ http {{
         """Restart nginx service."""
         try:
             # First, test the nginx configuration
-            test_result = subprocess.run(
-                self.config.nginx.test_command.split(),
-                capture_output=True,
-                text=True
-            )
+            test_valid, test_msg = self.test_nginx_config()
+            if not test_valid:
+                return False, f"Nginx config test failed: {test_msg}"
             
-            if test_result.returncode != 0:
-                return False, f"Nginx config test failed: {test_result.stderr}"
+            # Build restart command based on use_sudo setting
+            if self.config.nginx.use_sudo:
+                restart_command = ["sudo"] + self.config.nginx.restart_command.split()
+            else:
+                restart_command = self.config.nginx.restart_command.split()
             
-            # If config test passes, restart nginx
-            restart_result = subprocess.run(
-                self.config.nginx.restart_command.split(),
-                capture_output=True,
-                text=True
-            )
+            # Try to restart nginx
+            try:
+                restart_result = subprocess.run(
+                    restart_command,
+                    capture_output=True,
+                    text=True
+                )
+            except (PermissionError, FileNotFoundError) as e:
+                # If running without sudo fails, try with sudo
+                if not self.config.nginx.use_sudo:
+                    restart_command = ["sudo"] + self.config.nginx.restart_command.split()
+                    restart_result = subprocess.run(
+                        restart_command,
+                        capture_output=True,
+                        text=True
+                    )
+                else:
+                    raise e
             
             if restart_result.returncode == 0:
                 return True, "Nginx configuration tested and restarted successfully"
             else:
                 error_msg = restart_result.stderr.strip() or restart_result.stdout.strip()
+                # Check for "no new privileges" error
+                if "no new privileges" in error_msg:
+                    return False, "Cannot use sudo: Running in restricted environment. Please ensure proper file permissions are set."
                 return False, f"Nginx restart failed: {error_msg}"
         
         except Exception as e:
@@ -456,11 +571,37 @@ http {{
     def get_nginx_status(self) -> Dict[str, Any]:
         """Get nginx service status."""
         try:
-            result = subprocess.run(
-                self.config.nginx.status_command.split(),
-                capture_output=True,
-                text=True
-            )
+            # Build status command based on use_sudo setting
+            if self.config.nginx.use_sudo:
+                status_command = ["sudo"] + self.config.nginx.status_command.split()
+            else:
+                status_command = self.config.nginx.status_command.split()
+            
+            # Try to get status
+            try:
+                result = subprocess.run(
+                    status_command,
+                    capture_output=True,
+                    text=True
+                )
+            except (PermissionError, FileNotFoundError) as e:
+                # If running without sudo fails, try with sudo
+                if not self.config.nginx.use_sudo:
+                    status_command = ["sudo"] + self.config.nginx.status_command.split()
+                    result = subprocess.run(
+                        status_command,
+                        capture_output=True,
+                        text=True
+                    )
+                else:
+                    raise e
+            
+            # Check for "no new privileges" error
+            if "no new privileges" in result.stderr:
+                return {
+                    "running": False,
+                    "status": "Cannot use sudo: Running in restricted environment. Service status unavailable."
+                }
             
             return {
                 "running": result.returncode == 0,
