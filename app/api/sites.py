@@ -675,18 +675,21 @@ async def test_site(
                 "response_time": f"{response_time:.2f}s"
             }
             
-        except httpx.SSLError as e:
-            return {
-                "message": "SSL/TLS connection failed",
-                "url": url,
-                "error": "SSL certificate error or invalid SSL configuration"
-            }
         except httpx.ConnectError as e:
-            return {
-                "message": "Connection failed",
-                "url": url,
-                "error": "Could not connect to the site. Check if nginx is running and the site is properly configured."
-            }
+            # Handle SSL errors and other connection errors
+            error_msg = str(e)
+            if "ssl" in error_msg.lower() or "certificate" in error_msg.lower() or "tls" in error_msg.lower():
+                return {
+                    "message": "SSL/TLS connection failed",
+                    "url": url,
+                    "error": "SSL certificate error or invalid SSL configuration"
+                }
+            else:
+                return {
+                    "message": "Connection failed",
+                    "url": url,
+                    "error": "Could not connect to the site. Check if nginx is running and the site is properly configured."
+                }
         except httpx.TimeoutException as e:
             return {
                 "message": "Request timed out",
