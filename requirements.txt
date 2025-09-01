@@ -15,6 +15,7 @@ python-multipart==0.0.6
 pyyaml==6.0.1
 pydantic==2.5.0
 pydantic-settings==2.1.0
+email-validator==2.1.0
 
 # File handling and validation
 aiofiles==23.2.0
