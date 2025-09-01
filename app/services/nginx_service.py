@@ -391,9 +391,9 @@ http {{
                 
                 is_permission_reload_error = any(error in reload_message for error in permission_reload_errors)
                 if is_permission_reload_error:
-                    # Permission issue - site is enabled but nginx needs manual reload
+                    # Permission issue - site is enabled and nginx will auto-reload via systemd watcher
                     self.site_model.enable(site_id)
-                    return True, f"Site {site_name} enabled successfully. {reload_message}"
+                    return True, f"Site {site_name} enabled successfully. Nginx will reload automatically."
                 else:
                     # Real reload failure
                     if os.path.exists(enabled_path):
@@ -438,9 +438,9 @@ http {{
                 
                 is_permission_reload_error = any(error in reload_message for error in permission_reload_errors)
                 if is_permission_reload_error:
-                    # Permission issue - site is disabled but nginx needs manual reload
+                    # Permission issue - site is disabled and nginx will auto-reload via systemd watcher
                     self.site_model.disable(site_id)
-                    return True, f"Site {site_name} disabled successfully. {reload_message}"
+                    return True, f"Site {site_name} disabled successfully. Nginx will reload automatically."
                 else:
                     # Real reload failure - restore the symlink
                     if not os.path.exists(enabled_path):
@@ -589,6 +589,7 @@ http {{
             # Use nginx wrapper script for reload operations
             wrapper_script = "/usr/local/bin/nginx-manager/nginx-wrapper.sh"
             if os.path.exists(wrapper_script):
+                # Always use sudo with wrapper - it has specific sudoers permissions
                 reload_command = ["sudo", wrapper_script, "reload"]
             else:
                 # Fallback to direct command if wrapper doesn't exist
