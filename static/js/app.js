@@ -24,10 +24,24 @@ const App = {
             return;
         }
         
-        // If on login page and has token, redirect to dashboard
-        if (isLoginPage && this.token) {
+        // If not on login page, validate token
+        if (!isLoginPage && this.token) {
+            const isValid = this.validateToken();
+            if (!isValid) {
+                return; // validateToken will handle redirect
+            }
+        }
+        
+        // If on login page and has valid token, redirect to dashboard
+        if (isLoginPage && this.token && !this.isTokenExpired()) {
             window.location.href = '/';
             return;
+        }
+        
+        // If on login page with expired token, clear it
+        if (isLoginPage && this.token && this.isTokenExpired()) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('token_type');
         }
     },
     
@@ -61,12 +75,31 @@ const App = {
         
         // Handle network errors
         window.addEventListener('offline', () => {
-            this.showToast('Warning', 'You are now offline', 'warning');
+            showToast('Warning', 'You are now offline', 'warning');
         });
         
         window.addEventListener('online', () => {
-            this.showToast('Info', 'Connection restored', 'info');
+            showToast('Info', 'Connection restored', 'info');
         });
+        
+        // Intercept all fetch requests to handle auth errors globally
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            try {
+                const response = await originalFetch.apply(window, args);
+                
+                // Check for 401 responses on any fetch request
+                if (response.status === 401 && !args[0].includes('/auth/login')) {
+                    // Don't interfere with login requests, but handle all others
+                    this.handleAuthError();
+                    throw new Error('Session expired');
+                }
+                
+                return response;
+            } catch (error) {
+                throw error;
+            }
+        };
     },
     
     // Redirect to login page
@@ -78,10 +111,42 @@ const App = {
     
     // Handle authentication errors
     handleAuthError() {
-        this.showToast('Error', 'Session expired. Please login again.', 'error');
+        showToast('Error', 'Session expired. Please login again.', 'error');
         setTimeout(() => {
             this.redirectToLogin();
         }, 2000);
+    },
+    
+    // Check if token is expired (basic check)
+    isTokenExpired() {
+        const token = localStorage.getItem('access_token');
+        if (!token) return true;
+        
+        try {
+            // Decode JWT payload (basic decode, not verification)
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const currentTime = Math.floor(Date.now() / 1000);
+            
+            // Check if token is expired
+            if (payload.exp && payload.exp < currentTime) {
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.warn('Failed to decode token:', error);
+            return true; // Assume expired if we can't decode
+        }
+    },
+    
+    // Validate token on app startup
+    validateToken() {
+        if (!this.token || this.isTokenExpired()) {
+            this.redirectToLogin();
+            return false;
+        }
+        
+        return true;
     }
 };
 
@@ -115,6 +180,22 @@ async function fetchWithAuth(url, options = {}) {
         
         // Handle authentication errors
         if (response.status === 401) {
+            // Check if response body has specific error message
+            try {
+                const errorData = await response.json();
+                if (errorData.detail && (
+                    errorData.detail.includes('expired') || 
+                    errorData.detail.includes('invalid') ||
+                    errorData.detail.includes('token')
+                )) {
+                    App.handleAuthError();
+                    throw new Error('Session expired');
+                }
+            } catch (parseError) {
+                // If we can't parse the response, still treat as auth error
+                App.handleAuthError();
+                throw new Error('Authentication failed');
+            }
             App.handleAuthError();
             throw new Error('Authentication failed');
         }
