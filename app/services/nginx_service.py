@@ -425,7 +425,30 @@ http {{
             # Reload nginx
             reload_success, reload_message = self.reload_nginx()
             if not reload_success:
-                return False, f"Nginx reload failed: {reload_message}"
+                # Check if this is a permission issue that we can work around
+                permission_reload_errors = [
+                    "manual nginx reload required",
+                    "nginx reload required",
+                    "Cannot use sudo",
+                    "restricted environment",
+                    "insufficient permissions",
+                    "Authentication required",
+                    "Interactive authentication required"
+                ]
+                
+                is_permission_reload_error = any(error in reload_message for error in permission_reload_errors)
+                if is_permission_reload_error:
+                    # Permission issue - site is disabled but nginx needs manual reload
+                    self.site_model.disable(site_id)
+                    return True, f"Site {site_name} disabled successfully. {reload_message}"
+                else:
+                    # Real reload failure - restore the symlink
+                    if not os.path.exists(enabled_path):
+                        # Get config path to restore symlink
+                        config_path = site_data.get("config_path")
+                        if config_path and os.path.exists(config_path):
+                            os.symlink(config_path, enabled_path)
+                    return False, f"Nginx reload failed: {reload_message}"
             
             # Update site status
             self.site_model.disable(site_id)
