@@ -445,11 +445,16 @@ http {{
     def test_nginx_config(self) -> Tuple[bool, str]:
         """Test nginx configuration."""
         try:
-            # Build command based on use_sudo setting
-            if self.config.nginx.use_sudo:
-                command = ["sudo"] + self.config.nginx.test_command.split()
+            # Use nginx wrapper script for test operations
+            wrapper_script = "/usr/local/bin/nginx-manager/nginx-wrapper.sh"
+            if os.path.exists(wrapper_script):
+                command = ["sudo", wrapper_script, "test"]
             else:
-                command = self.config.nginx.test_command.split()
+                # Fallback to direct command if wrapper doesn't exist
+                if self.config.nginx.use_sudo:
+                    command = ["sudo"] + self.config.nginx.test_command.split()
+                else:
+                    command = self.config.nginx.test_command.split()
             
             # Try to run the command
             try:
@@ -459,14 +464,20 @@ http {{
                     text=True
                 )
             except (PermissionError, FileNotFoundError) as e:
-                # If running without sudo fails, try with sudo
-                if not self.config.nginx.use_sudo:
-                    command = ["sudo"] + self.config.nginx.test_command.split()
-                    result = subprocess.run(
-                        command,
-                        capture_output=True,
-                        text=True
-                    )
+                # If wrapper script fails, try fallback method
+                if os.path.exists(wrapper_script):
+                    try:
+                        if self.config.nginx.use_sudo:
+                            command = ["sudo"] + self.config.nginx.test_command.split()
+                        else:
+                            command = self.config.nginx.test_command.split()
+                        result = subprocess.run(
+                            command,
+                            capture_output=True,
+                            text=True
+                        )
+                    except Exception:
+                        raise e
                 else:
                     raise e
             
@@ -523,7 +534,7 @@ http {{
     def reload_nginx(self) -> Tuple[bool, str]:
         """Reload nginx service with config validation."""
         try:
-            # First, test the nginx configuration (skip if permissions insufficient)
+            # First, test the nginx configuration using wrapper script
             test_valid, test_msg = self.test_nginx_config()
             if not test_valid:
                 # Check if it's just a permission issue
@@ -531,11 +542,16 @@ http {{
                     return False, f"Nginx config test failed: {test_msg}"
                 # Skip test if permissions are insufficient but continue with reload
             
-            # Build reload command based on use_sudo setting
-            if self.config.nginx.use_sudo:
-                reload_command = ["sudo"] + self.config.nginx.reload_command.split()
+            # Use nginx wrapper script for reload operations
+            wrapper_script = "/usr/local/bin/nginx-manager/nginx-wrapper.sh"
+            if os.path.exists(wrapper_script):
+                reload_command = ["sudo", wrapper_script, "reload"]
             else:
-                reload_command = self.config.nginx.reload_command.split()
+                # Fallback to direct command if wrapper doesn't exist
+                if self.config.nginx.use_sudo:
+                    reload_command = ["sudo"] + self.config.nginx.reload_command.split()
+                else:
+                    reload_command = self.config.nginx.reload_command.split()
             
             # Try to reload nginx
             try:
@@ -545,17 +561,19 @@ http {{
                     text=True
                 )
             except (PermissionError, FileNotFoundError) as e:
-                # If running without sudo fails, try with sudo if not already using it
-                if not self.config.nginx.use_sudo:
+                # If wrapper script fails, try fallback method
+                if os.path.exists(wrapper_script):
                     try:
-                        reload_command = ["sudo"] + self.config.nginx.reload_command.split()
+                        if self.config.nginx.use_sudo:
+                            reload_command = ["sudo"] + self.config.nginx.reload_command.split()
+                        else:
+                            reload_command = self.config.nginx.reload_command.split()
                         reload_result = subprocess.run(
                             reload_command,
                             capture_output=True,
                             text=True
                         )
                     except Exception:
-                        # Both methods failed - return a softer failure for permission issues
                         return False, "Cannot reload nginx: insufficient permissions. Site enabled but nginx reload required."
                 else:
                     return False, "Cannot reload nginx: insufficient permissions. Site enabled but nginx reload required."
