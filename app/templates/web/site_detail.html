@@ -267,11 +267,33 @@ async function loadSiteDetails() {
     }
 }
 
+// Helper function to parse domains from string (space or comma separated)
+function parseDomains(domainString) {
+    if (!domainString) return [];
+    return domainString.split(/[,\s]+/).filter(d => d.trim().length > 0);
+}
+
+// Helper function to get the primary domain (first one)
+function getPrimaryDomain(domainString) {
+    const domains = parseDomains(domainString);
+    return domains.length > 0 ? domains[0] : domainString;
+}
+
+// Helper function to format domains for display
+function formatDomainsForDisplay(domainString) {
+    const domains = parseDomains(domainString);
+    if (domains.length <= 1) {
+        return domainString;
+    }
+    return domains.join(', ');
+}
+
 function updatePageTitle() {
     document.querySelector('.dashboard-title').innerHTML = `
         <i class="fas fa-globe me-2"></i>${siteData.name}
     `;
-    document.querySelector('.dashboard-subtitle').textContent = `Configure ${siteData.domain}`;
+    const primaryDomain = getPrimaryDomain(siteData.domain);
+    document.querySelector('.dashboard-subtitle').textContent = `Configure ${primaryDomain}`;
 }
 
 function renderSiteDetails() {
@@ -300,7 +322,7 @@ function renderSiteDetails() {
                                 </div>
                                 <div>
                                     <h3 class="mb-1">${siteData.name}</h3>
-                                    <p class="text-secondary mb-0">${siteData.domain}</p>
+                                    <p class="text-secondary mb-0">${formatDomainsForDisplay(siteData.domain)}</p>
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
@@ -311,12 +333,14 @@ function renderSiteDetails() {
                     </div>
                     <div class="detail-grid">
                         <div class="detail-item">
-                            <div class="detail-label">Domain</div>
+                            <div class="detail-label">Domain${parseDomains(siteData.domain).length > 1 ? 's' : ''}</div>
                             <div class="detail-value">
-                                <a href="${siteData.ssl_enabled ? 'https' : 'http'}://${siteData.domain}" 
-                                   target="_blank" class="detail-link">
-                                    ${siteData.domain} <i class="fas fa-external-link-alt fa-sm"></i>
-                                </a>
+                                ${parseDomains(siteData.domain).map(domain => 
+                                    `<div class="mb-1"><a href="${siteData.ssl_enabled ? 'https' : 'http'}://${domain.trim()}" 
+                                       target="_blank" class="detail-link">
+                                        ${domain.trim()} <i class="fas fa-external-link-alt fa-sm"></i>
+                                    </a></div>`
+                                ).join('')}
                             </div>
                         </div>
                         <div class="detail-item">
@@ -357,7 +381,7 @@ function renderSiteDetails() {
                             </div>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mt-3">
-                            <small class="text-muted">Configuration file for ${siteData.domain}</small>
+                            <small class="text-muted">Configuration file for ${getPrimaryDomain(siteData.domain)}</small>
                             <button class="btn btn-sm btn-outline-primary" onclick="copyConfig()">
                                 <i class="fas fa-copy me-1"></i>Copy
                             </button>

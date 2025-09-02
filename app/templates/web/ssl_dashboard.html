@@ -20,6 +20,10 @@
                     <i class="fas fa-cog"></i>
                     <span>Setup Auto-Renewal</span>
                 </button>
+                <button class="btn btn-outline-primary me-2" onclick="refreshSSLDashboard()">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh</span>
+                </button>
                 <button class="btn btn-primary" onclick="checkCertbotStatus()">
                     <i class="fas fa-check-circle"></i>
                     <span>Check Status</span>
@@ -71,7 +75,7 @@
             <h5 class="mb-0">
                 <i class="fas fa-lock me-2"></i>SSL-Enabled Sites
             </h5>
-            <button class="btn btn-sm btn-outline-primary" onclick="refreshCertificates()">
+            <button class="btn btn-sm btn-outline-primary" onclick="refreshSSLDashboard()">
                 <i class="fas fa-sync-alt me-1"></i>Refresh
             </button>
         </div>
@@ -280,9 +284,20 @@
 let sslSites = [];
 let certbotTimer = null;
 
+function refreshSSLDashboard() {
+    showToast('Info', 'Refreshing SSL data...', 'info');
+    loadSSLDashboard();
+    checkAutoRenewalStatus();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     loadSSLDashboard();
     checkAutoRenewalStatus();
+    
+    // Auto-refresh every 60 seconds
+    setInterval(() => {
+        loadSSLDashboard();
+    }, 60000);
 });
 
 async function loadSSLDashboard() {
@@ -306,10 +321,10 @@ async function loadSSLDashboard() {
 
 function updateSSLStats() {
     const totalCerts = sslSites.length;
-    const activeCerts = sslSites.filter(s => s.ssl_certificate).length;
+    const activeCerts = sslSites.filter(s => s.ssl_certificate_path && s.ssl_status === 'active').length;
     const expiringCerts = sslSites.filter(s => {
-        if (!s.ssl_expiry) return false;
-        const daysToExpiry = Math.floor((new Date(s.ssl_expiry) - new Date()) / (1000 * 60 * 60 * 24));
+        if (!s.ssl_expiry_date || s.ssl_status !== 'active') return false;
+        const daysToExpiry = Math.floor((new Date(s.ssl_expiry_date) - new Date()) / (1000 * 60 * 60 * 24));
         return daysToExpiry <= 30 && daysToExpiry > 0;
     }).length;
     
@@ -348,7 +363,7 @@ function renderSSLSites() {
                         </div>
                         <div class="ssl-site-domain">${site.domain}</div>
                     </div>
-                    <span class="ssl-status-badge ${status.class}">
+                    <span class="ssl-status-badge ${status.class}" title="Certificate Status: ${status.text}">
                         <i class="fas fa-${status.icon}"></i>
                         ${status.text}
                     </span>
@@ -358,35 +373,35 @@ function renderSSLSites() {
                     <div class="ssl-detail-item">
                         <div class="ssl-detail-label">Certificate Status</div>
                         <div class="ssl-detail-value">
-                            ${site.ssl_certificate ? 'Installed' : 'Not Installed'}
+                            ${site.ssl_certificate_path ? 'Installed' : 'Not Installed'}
                         </div>
                     </div>
                     <div class="ssl-detail-item">
                         <div class="ssl-detail-label">Expiry Date</div>
                         <div class="ssl-detail-value">
-                            ${site.ssl_expiry ? new Date(site.ssl_expiry).toLocaleDateString() : 'N/A'}
+                            ${site.ssl_expiry_date ? new Date(site.ssl_expiry_date).toLocaleDateString() : 'N/A'}
                         </div>
                     </div>
                     <div class="ssl-detail-item">
                         <div class="ssl-detail-label">Days Remaining</div>
                         <div class="ssl-detail-value">
-                            ${site.ssl_expiry ? getDaysRemaining(site.ssl_expiry) : 'N/A'}
+                            ${site.ssl_expiry_date ? getDaysRemaining(site.ssl_expiry_date) : 'N/A'}
                         </div>
                     </div>
                 </div>
                 
                 <div class="ssl-actions">
-                    ${!site.ssl_certificate ? `
-                        <button onclick="obtainCertificate('${site.domain}')" 
+                    ${!site.ssl_certificate_path ? `
+                        <button onclick="obtainCertificate(${site.id}, '${site.domain}')" 
                                 class="btn btn-success btn-ssl-action">
                             <i class="fas fa-plus me-1"></i>Obtain Certificate
                         </button>
                     ` : `
-                        <button onclick="renewCertificate('${site.domain}')" 
+                        <button onclick="renewCertificate(${site.id}, '${site.domain}')" 
                                 class="btn btn-primary btn-ssl-action">
                             <i class="fas fa-sync me-1"></i>Renew
                         </button>
-                        <button onclick="viewCertificate('${site.domain}')" 
+                        <button onclick="viewCertificate(${site.id}, '${site.domain}')" 
                                 class="btn btn-outline-info btn-ssl-action">
                             <i class="fas fa-eye me-1"></i>View Details
                         </button>
@@ -404,15 +419,15 @@ function renderSSLSites() {
 }
 
 function getSSLStatus(site) {
-    if (!site.ssl_certificate) {
+    if (!site.ssl_certificate_path) {
         return { text: 'No Certificate', class: 'expired', icon: 'times-circle' };
     }
     
-    if (!site.ssl_expiry) {
+    if (!site.ssl_expiry_date) {
         return { text: 'Unknown', class: 'expiring', icon: 'question-circle' };
     }
     
-    const daysRemaining = Math.floor((new Date(site.ssl_expiry) - new Date()) / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.floor((new Date(site.ssl_expiry_date) - new Date()) / (1000 * 60 * 60 * 24));
     
     if (daysRemaining <= 0) {
         return { text: 'Expired', class: 'expired', icon: 'times-circle' };
@@ -429,18 +444,24 @@ function getDaysRemaining(expiryDate) {
     return `${days} days`;
 }
 
-async function obtainCertificate(domain) {
+async function obtainCertificate(siteId, domain) {
     const btn = event.target;
     const originalContent = btn.innerHTML;
+    
+    // Prompt for email address
+    const email = prompt('Enter email address for Let\'s Encrypt notifications:', '');
+    if (!email) {
+        return;
+    }
     
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Obtaining...';
     btn.disabled = true;
     
     try {
-        const response = await fetchWithAuth('/api/ssl/obtain', {
+        const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/enable`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain })
+            body: JSON.stringify({ email })
         });
         
         if (response.ok) {
@@ -460,7 +481,7 @@ async function obtainCertificate(domain) {
     }
 }
 
-async function renewCertificate(domain) {
+async function renewCertificate(siteId, domain) {
     if (!confirm(`Renew SSL certificate for ${domain}?`)) return;
     
     const btn = event.target;
@@ -470,10 +491,10 @@ async function renewCertificate(domain) {
     btn.disabled = true;
     
     try {
-        const response = await fetchWithAuth('/api/ssl/renew', {
+        const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/renew`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain })
+            body: JSON.stringify({ force: true })
         });
         
         if (response.ok) {
@@ -518,7 +539,7 @@ async function revokeCertificate(domain) {
     }
 }
 
-async function viewCertificate(domain) {
+async function viewCertificate(siteId, domain) {
     const modal = new bootstrap.Modal(document.getElementById('certDetailsModal'));
     const modalBody = document.getElementById('certDetailsBody');
     
@@ -526,40 +547,54 @@ async function viewCertificate(domain) {
     modal.show();
     
     try {
-        const response = await fetchWithAuth(`/api/ssl/certificate/${encodeURIComponent(domain)}`);
+        const response = await fetchWithAuth(`/api/ssl/sites/${siteId}/status`);
         if (response.ok) {
             const data = await response.json();
-            modalBody.innerHTML = `
-                <div class="cert-details">
-                    <h6>Certificate Information</h6>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="text-muted">Domain</label>
-                            <p class="fw-bold">${data.domain}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="text-muted">Status</label>
-                            <p class="fw-bold">${data.status}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="text-muted">Issue Date</label>
-                            <p class="fw-bold">${new Date(data.issued).toLocaleDateString()}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="text-muted">Expiry Date</label>
-                            <p class="fw-bold">${new Date(data.expiry).toLocaleDateString()}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="text-muted">Issuer</label>
-                            <p class="fw-bold">${data.issuer || 'Let\'s Encrypt'}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="text-muted">Days Remaining</label>
-                            <p class="fw-bold">${getDaysRemaining(data.expiry)}</p>
+            const cert = data.certificate;
+            if (cert && data.ssl_enabled) {
+                modalBody.innerHTML = `
+                    <div class="cert-details">
+                        <h6>Certificate Information</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="text-muted">Domain</label>
+                                <p class="fw-bold">${data.domain}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-muted">SSL Status</label>
+                                <p class="fw-bold">${data.ssl_status || 'Unknown'}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-muted">Certificate Status</label>
+                                <p class="fw-bold">${cert.status || 'Active'}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-muted">Expiry Date</label>
+                                <p class="fw-bold">${cert.expiry_date ? new Date(cert.expiry_date).toLocaleDateString() : 'N/A'}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-muted">Issuer</label>
+                                <p class="fw-bold">Let's Encrypt</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-muted">Days Remaining</label>
+                                <p class="fw-bold">${cert.expiry_date ? Math.floor((new Date(cert.expiry_date) - new Date()) / (1000 * 60 * 60 * 24)) : 'N/A'}</p>
+                            </div>
+                            <div class="col-12">
+                                <label class="text-muted">Certificate Path</label>
+                                <p class="fw-bold font-monospace small">${cert.path || 'N/A'}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                modalBody.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No SSL certificate found for this domain.
+                    </div>
+                `;
+            }
         } else {
             throw new Error('Failed to load certificate details');
         }
@@ -592,7 +627,7 @@ function updateCertbotStatus(status) {
         <div class="certbot-status-item">
             <div class="certbot-status-label">Certbot Installed</div>
             <div class="certbot-status-value">
-                ${status.certbot_installed ? 
+                ${status.certbot_available ? 
                     '<i class="fas fa-check text-success me-1"></i>Yes' : 
                     '<i class="fas fa-times text-danger me-1"></i>No'}
             </div>
@@ -615,14 +650,19 @@ async function checkAutoRenewalStatus() {
             const data = await response.json();
             const statusEl = document.getElementById('autoRenewalStatus');
             
-            if (data.enabled) {
-                statusEl.innerHTML = '<i class="fas fa-check text-success"></i>';
+            if (data.auto_renewal_enabled) {
+                const method = data.renewal_method || 'unknown';
+                const nextRun = data.next_run ? `Next: ${data.next_run}` : '';
+                
+                statusEl.innerHTML = `<i class="fas fa-check text-success" title="Auto-renewal enabled (${method}) ${nextRun}"></i>`;
             } else {
-                statusEl.innerHTML = '<i class="fas fa-times text-danger"></i>';
+                statusEl.innerHTML = '<i class="fas fa-times text-danger" title="Auto-renewal not configured"></i>';
             }
         }
     } catch (error) {
         console.error('Error checking auto-renewal status:', error);
+        const statusEl = document.getElementById('autoRenewalStatus');
+        statusEl.innerHTML = '<i class="fas fa-question text-warning" title="Unable to check auto-renewal status"></i>';
     }
 }
 

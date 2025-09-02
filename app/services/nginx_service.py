@@ -183,13 +183,22 @@ server {
             raise ValueError(f"Template not found for site type: {site_type}")
         
         # Prepare template variables
+        # Expand SSL certificate paths if they contain ~
+        ssl_cert_path = site_data.get("ssl_certificate_path", "") or ""
+        ssl_key_path = site_data.get("ssl_certificate_key_path", "") or ""
+        
+        if ssl_cert_path and ssl_cert_path.startswith("~"):
+            ssl_cert_path = os.path.expanduser(ssl_cert_path)
+        if ssl_key_path and ssl_key_path.startswith("~"):
+            ssl_key_path = os.path.expanduser(ssl_key_path)
+        
         template_vars = {
             "site_name": site_data["name"],
             "domain": site_data["domain"],
             "web_root": self.config.paths.web_root,
             "ssl_enabled": bool(site_data.get("ssl_enabled", False)),
-            "ssl_certificate_path": site_data.get("ssl_certificate_path", ""),
-            "ssl_certificate_key_path": site_data.get("ssl_certificate_key_path", ""),
+            "ssl_certificate_path": ssl_cert_path,
+            "ssl_certificate_key_path": ssl_key_path,
             **site_data.get("config", {})
         }
         

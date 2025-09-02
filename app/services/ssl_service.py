@@ -43,6 +43,8 @@ class SSLService:
         self.config_dir = os.path.join(self.home_dir, ".letsencrypt")
         self.work_dir = os.path.join(self.home_dir, ".letsencrypt/work")
         self.logs_dir = os.path.join(self.home_dir, ".letsencrypt/logs")
+        # Get SSL staging setting from config
+        self.use_staging = self.config.ssl.staging if hasattr(self.config, 'ssl') else True
         
         # Create directories if they don't exist
         os.makedirs(self.config_dir, exist_ok=True)
@@ -74,6 +76,21 @@ class SSLService:
         except RuntimeError:
             return False
     
+    def get_certbot_version(self) -> Optional[str]:
+        """Get certbot version string."""
+        try:
+            certbot_path = self._find_certbot()
+            result = subprocess.run([certbot_path, "--version"], capture_output=True, text=True)
+            if result.returncode == 0:
+                # Extract version from output like "certbot 2.9.0"
+                version_line = result.stdout.strip()
+                if version_line.startswith("certbot"):
+                    return version_line.split()[1] if len(version_line.split()) > 1 else version_line
+                return version_line
+            return None
+        except Exception:
+            return None
+    
     def install_certbot(self) -> Tuple[bool, str]:
         """Install certbot using system package manager."""
         try:
@@ -104,9 +121,38 @@ class SSLService:
             if not self.is_certbot_available():
                 return False, "Certbot not available", None
             
+            # Determine webroot path - try site-specific first, then default
+            if webroot_path:
+                webroot = webroot_path
+            else:
+                # Try site-specific webroot first
+                site_webroot = f"/var/www/{domain.replace('.', '-')}"
+                if os.path.exists(site_webroot):
+                    webroot = site_webroot
+                else:
+                    # Use default webroot
+                    webroot = self.webroot_path
+            
             # Ensure webroot directory exists
-            webroot = webroot_path or self.webroot_path
             Path(webroot).mkdir(parents=True, exist_ok=True)
+            
+            # Create a temporary validation file to test webroot access
+            test_dir = os.path.join(webroot, '.well-known', 'acme-challenge')
+            Path(test_dir).mkdir(parents=True, exist_ok=True)
+            test_file = os.path.join(test_dir, 'test.txt')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.chmod(test_file, 0o644)
+            
+            # Parse multiple domains (space or comma separated)
+            domains = []
+            if ',' in domain:
+                domains = [d.strip() for d in domain.split(',') if d.strip()]
+            else:
+                domains = [d.strip() for d in domain.split() if d.strip()]
+            
+            if not domains:
+                domains = [domain.strip()]  # fallback to original domain if parsing fails
             
             # Build certbot command with custom directories
             cmd = [
@@ -120,26 +166,42 @@ class SSLService:
                 "--expand",
                 "--config-dir", self.config_dir,
                 "--work-dir", self.work_dir,
-                "--logs-dir", self.logs_dir,
-                "--staging",  # Use staging server for testing
-                "-d", domain
+                "--logs-dir", self.logs_dir
             ]
+            
+            # Add each domain as a separate -d parameter
+            for domain_name in domains:
+                cmd.extend(["-d", domain_name])
+            
+            # Add staging flag if configured
+            if self.use_staging:
+                cmd.insert(-2, "--staging")
             
             # Run certbot
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
-                # Certificate generated successfully
-                cert_info = self.get_certificate_info(domain)
+                # Certificate generated successfully - use primary domain (first one)
+                primary_domain = domains[0]
+                cert_info = self.get_certificate_info(primary_domain)
                 if cert_info:
                     # Set proper permissions for nginx to read certificates
-                    self._set_certificate_permissions(domain)
+                    self._set_certificate_permissions(primary_domain)
                     return True, "Certificate generated successfully", cert_info
                 else:
                     return False, "Certificate generated but could not retrieve info", None
             else:
                 error_msg = result.stderr or result.stdout
-                return False, f"Certificate generation failed: {error_msg}", None
+                # Check for common errors and provide helpful messages
+                primary_domain = domains[0]
+                if "NXDOMAIN" in error_msg or "DNS problem" in error_msg:
+                    return False, f"DNS verification failed. Ensure {primary_domain} (and other domains) point to this server's IP address.", None
+                elif "Unauthorized" in error_msg or "404" in error_msg:
+                    return False, f"Domain validation failed. Ensure nginx is configured to serve {webroot}/.well-known/acme-challenge/ for all domains", None
+                elif "rate limit" in error_msg.lower():
+                    return False, "Let's Encrypt rate limit exceeded. Please wait before retrying.", None
+                else:
+                    return False, f"Certificate generation failed: {error_msg}", None
         
         except Exception as e:
             return False, f"Error generating certificate: {str(e)}", None
@@ -150,10 +212,13 @@ class SSLService:
             if not self.is_certbot_available():
                 return False, "Certbot not available"
             
+            # Use primary domain for certificate name (certbot uses first domain as cert name)
+            primary_domain = domain.split()[0] if ' ' in domain else domain
+            
             cmd = [
                 self.certbot_path,
                 "renew",
-                "--cert-name", domain,
+                "--cert-name", primary_domain,
                 "--non-interactive",
                 "--config-dir", self.config_dir,
                 "--work-dir", self.work_dir,
@@ -179,7 +244,9 @@ class SSLService:
             if not self.is_certbot_available():
                 return False, "Certbot not available"
             
-            cert_path = f"{self.letsencrypt_dir}/live/{domain}/cert.pem"
+            # Use primary domain for certificate path
+            primary_domain = domain.split()[0] if ' ' in domain else domain
+            cert_path = f"{self.letsencrypt_dir}/live/{primary_domain}/cert.pem"
             
             if not os.path.exists(cert_path):
                 return False, f"Certificate not found for domain {domain}"
@@ -205,8 +272,10 @@ class SSLService:
     def get_certificate_info(self, domain: str) -> Optional[CertificateInfo]:
         """Get information about a certificate."""
         try:
-            cert_path = f"{self.config_dir}/live/{domain}/fullchain.pem"
-            key_path = f"{self.config_dir}/live/{domain}/privkey.pem"
+            # Use primary domain for certificate path (certbot stores by first domain)
+            primary_domain = domain.split()[0] if ' ' in domain else domain
+            cert_path = f"{self.config_dir}/live/{primary_domain}/fullchain.pem"
+            key_path = f"{self.config_dir}/live/{primary_domain}/privkey.pem"
             
             if not os.path.exists(cert_path):
                 return None
@@ -242,7 +311,7 @@ class SSLService:
                 status = "active"
             
             return CertificateInfo(
-                domain=domain,
+                domain=primary_domain,  # Use primary domain for consistency
                 path=cert_path,
                 key_path=key_path,
                 expiry_date=expiry_date,
@@ -276,11 +345,13 @@ class SSLService:
     def _install_certificate_to_system(self, domain: str) -> bool:
         """Install certificate to system location if possible."""
         try:
-            source_cert = f"{self.config_dir}/live/{domain}/fullchain.pem"
-            source_key = f"{self.config_dir}/live/{domain}/privkey.pem"
+            # Use primary domain for certificate path
+            primary_domain = domain.split()[0] if ' ' in domain else domain
+            source_cert = f"{self.config_dir}/live/{primary_domain}/fullchain.pem"
+            source_key = f"{self.config_dir}/live/{primary_domain}/privkey.pem"
             
             # Try to copy to system location for nginx to use
-            system_cert_dir = f"/etc/letsencrypt/live/{domain}"
+            system_cert_dir = f"/etc/letsencrypt/live/{primary_domain}"
             
             if not os.path.exists(source_cert):
                 return False
@@ -306,7 +377,9 @@ class SSLService:
         """Set proper permissions for nginx to read certificates."""
         try:
             import stat
-            cert_dir = f"{self.config_dir}/live/{domain}"
+            # Use primary domain for certificate path
+            primary_domain = domain.split()[0] if ' ' in domain else domain
+            cert_dir = f"{self.config_dir}/live/{primary_domain}"
             cert_file = f"{cert_dir}/fullchain.pem"
             key_file = f"{cert_dir}/privkey.pem"
             
@@ -418,13 +491,18 @@ class SSLService:
         return expiring_sites
     
     def setup_auto_renewal(self) -> Tuple[bool, str]:
-        """Setup automatic certificate renewal using crontab."""
+        """Setup automatic certificate renewal using systemd timer."""
         try:
-            # Check if we have write permissions to systemd directory
-            systemd_dir = "/etc/systemd/system"
-            if not os.access(systemd_dir, os.W_OK):
-                # Fall back to crontab-based renewal
-                return self._setup_cron_renewal()
+            # First check if there's already a system certbot timer
+            try:
+                result = subprocess.run(
+                    ["systemctl", "is-active", "certbot.timer"],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    return True, "Auto-renewal is already configured using system certbot timer"
+            except:
+                pass
             
             # Try to create systemd service and timer
             try:
@@ -512,16 +590,61 @@ WantedBy=timers.target
             return True, "Automatic renewal setup successfully using crontab. Certificates will be renewed twice daily at 2:00 AM and 2:00 PM."
         
         except ImportError:
-            # python-crontab not available, provide manual instructions
-            return False, ("Automatic renewal requires 'python-crontab' package or root privileges for systemd. "
-                          "Please install with: pip install python-crontab, or run the installer as root.")
+            # python-crontab not available, suggest manual setup
+            return False, ("Automatic renewal setup failed. The system certbot timer is recommended. "
+                          "You can enable it manually with: sudo systemctl enable --now certbot.timer")
         except Exception as e:
+            # Handle read-only filesystem or other cron issues
+            if "read-only" in str(e).lower() or "mkstemp" in str(e):
+                return False, ("Cron setup failed due to filesystem permissions. "
+                              "The system certbot timer is already running and will handle renewals automatically.")
             return False, f"Error setting up cron renewal: {str(e)}"
     
     def get_renewal_status(self) -> Dict[str, Any]:
         """Get status of automatic renewal setup."""
         try:
-            # First check for systemd timer
+            # First check for system certbot timer
+            try:
+                result = subprocess.run(
+                    ["systemctl", "is-active", "certbot.timer"],
+                    capture_output=True, text=True
+                )
+                
+                if result.returncode == 0 and result.stdout.strip() == "active":
+                    # System certbot timer is active
+                    try:
+                        result = subprocess.run(
+                            ["systemctl", "list-timers", "certbot.timer", "--no-pager"],
+                            capture_output=True, text=True
+                        )
+                        
+                        next_run = None
+                        if result.returncode == 0:
+                            lines = result.stdout.strip().split('\n')
+                            for line in lines:
+                                if "certbot.timer" in line:
+                                    parts = line.split()
+                                    if len(parts) >= 2:
+                                        next_run = f"{parts[0]} {parts[1]}"
+                                    break
+                        
+                        return {
+                            "auto_renewal_enabled": True,
+                            "renewal_method": "system-certbot",
+                            "next_run": next_run,
+                            "service_status": "active"
+                        }
+                    except:
+                        return {
+                            "auto_renewal_enabled": True,
+                            "renewal_method": "system-certbot",
+                            "next_run": "Unknown",
+                            "service_status": "active"
+                        }
+            except:
+                pass
+            
+            # Check for custom systemd timer
             try:
                 result = subprocess.run(
                     ["systemctl", "is-active", "certbot-renewal.timer"],

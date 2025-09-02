@@ -30,6 +30,9 @@ jinja2==3.1.2
 # Logging and monitoring
 structlog==23.2.0
 
+# Cron job management for SSL auto-renewal
+python-crontab==3.0.0
+
 # Development dependencies (optional)
 pytest==7.4.3
 pytest-asyncio==0.21.1

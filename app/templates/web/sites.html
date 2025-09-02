@@ -522,8 +522,8 @@ function renderSites() {
                     </div>
                     <div class="site-domain">
                         <i class="fas fa-link fa-sm"></i>
-                        <a href="${site.ssl_enabled ? 'https' : 'http'}://${site.domain}" target="_blank">
-                            ${site.domain}
+                        <a href="${site.ssl_enabled ? 'https' : 'http'}://${site.domain.split(/[,\s]+/)[0].trim()}" target="_blank">
+                            ${site.domain.split(/[,\s]+/).filter(d => d.trim()).join(', ')}
                             <i class="fas fa-external-link-alt fa-xs ms-1"></i>
                         </a>
                     </div>
