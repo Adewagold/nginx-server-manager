@@ -34,8 +34,9 @@ paths:
   # Web root directory for static sites
   web_root: "/var/www"
   
-  # SSL certificate directory (Let's Encrypt default)
-  ssl_cert_dir: "/etc/letsencrypt/live"
+  # SSL certificate directory (User-accessible location)
+  # Note: Certificates are stored in ~/.letsencrypt/live to avoid permission issues
+  ssl_cert_dir: "~/.letsencrypt/live"
   
   # Application data directory
   data_dir: "./data"
@@ -86,11 +87,12 @@ upload:
 
 # SSL/TLS configuration
 ssl:
-  # Email for Let's Encrypt registration
+  # Email for Let's Encrypt registration (REQUIRED - update this!)
   email: "admin@yourdomain.com"
   
-  # Use staging environment for testing
-  staging: false
+  # Use staging environment for testing (set to false for production certificates)
+  # Staging certificates are not trusted by browsers but useful for testing
+  staging: true
   
   # Automatic certificate renewal
   auto_renew: true

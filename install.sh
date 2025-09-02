@@ -387,6 +387,10 @@ setup_python_environment() {
             sleep 5
         fi
     done
+    
+    # Install python-crontab separately if not already installed
+    print_info "Ensuring python-crontab is installed for SSL auto-renewal..."
+    ./venv/bin/pip install python-crontab==3.0.0 || print_warning "python-crontab installation failed - auto-renewal may not work"
 }
 
 setup_directories_and_permissions() {
@@ -918,6 +922,16 @@ final_configuration() {
         print_info "Nginx service is already running"
     fi
     
+    # Enable certbot timer for automatic SSL renewals
+    print_info "Configuring SSL certificate auto-renewal..."
+    if command_exists certbot && systemctl list-unit-files | grep -q "certbot.timer"; then
+        sudo systemctl enable certbot.timer
+        sudo systemctl start certbot.timer
+        print_status "SSL auto-renewal configured with certbot timer"
+    else
+        print_warning "Certbot timer not available - SSL auto-renewal will use fallback method"
+    fi
+    
     # Start the privileged nginx manager service
     print_info "Starting privileged nginx manager service..."
     sudo systemctl start nginx-manager-privileged
@@ -953,7 +967,8 @@ show_completion_message() {
     echo -e "${RED}⚠${NC}  Change the default admin password in config.yaml"
     echo -e "${YELLOW}⚠${NC}  Log out and log back in for group permissions to take effect"
     echo -e "${YELLOW}⚠${NC}  Configure firewall to allow access to port 8080"
-    echo -e "${YELLOW}⚠${NC}  For production SSL, remove --staging flag from SSL service"
+    echo -e "${YELLOW}⚠${NC}  Update SSL email in config.yaml (ssl.email)"
+    echo -e "${YELLOW}⚠${NC}  For production SSL, set ssl.staging to false in config.yaml"
     
     echo -e "\n${CYAN}━━━ SERVICE MANAGEMENT ━━━${NC}"
     echo -e "${BLUE}•${NC} Check main service: ${YELLOW}sudo systemctl status nginx-manager${NC}"
@@ -971,8 +986,10 @@ show_completion_message() {
     
     echo -e "\n${CYAN}━━━ SSL CONFIGURATION ━━━${NC}"
     echo -e "${BLUE}•${NC} Certificates stored in: ${YELLOW}~/.letsencrypt/${NC}"
-    echo -e "${BLUE}•${NC} Auto-renewal configured with systemd timers"
-    echo -e "${BLUE}•${NC} Currently using staging server for testing"
+    echo -e "${BLUE}•${NC} Auto-renewal configured with system certbot timer"
+    echo -e "${BLUE}•${NC} Auto-renewal status visible in SSL dashboard"
+    echo -e "${BLUE}•${NC} Default: Using staging server (test certificates)"
+    echo -e "${BLUE}•${NC} For production: Set ssl.staging=false in config.yaml"
     
     echo -e "\n${CYAN}━━━ SUPPORT & DOCUMENTATION ━━━${NC}"
     echo -e "${BLUE}•${NC} Installation log: ${YELLOW}$INSTALL_LOG${NC}"

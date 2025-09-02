@@ -83,6 +83,10 @@ class SiteResponse(BaseModel):
     type: str
     enabled: bool
     ssl_enabled: bool
+    ssl_certificate_path: Optional[str] = None
+    ssl_certificate_key_path: Optional[str] = None
+    ssl_expiry_date: Optional[datetime] = None
+    ssl_status: Optional[str] = 'disabled'
     config_path: Optional[str]
     created_at: datetime
     updated_at: datetime

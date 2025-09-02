@@ -64,10 +64,11 @@ async def enable_ssl(
                 if test_success:
                     reload_success, reload_message = nginx_service.reload_nginx()
                     if reload_success:
+                        cert_info = ssl_service.get_certificate_info(site['domain'])
                         return {
                             "success": True,
                             "message": "SSL enabled successfully",
-                            "certificate_info": ssl_service.get_certificate_info(site['domain']).__dict__ if ssl_service.get_certificate_info(site['domain']) else None
+                            "certificate_info": cert_info.__dict__ if cert_info else None
                         }
                     else:
                         return {
@@ -165,8 +166,10 @@ async def get_ssl_status(
         if not site:
             raise HTTPException(status_code=404, detail="Site not found")
         
-        # Get certificate information
-        cert_info = ssl_service.get_certificate_info(site['domain'])
+        # Get certificate information - use primary domain (first one)
+        domain = site['domain']
+        primary_domain = domain.split()[0] if ' ' in domain else domain
+        cert_info = ssl_service.get_certificate_info(primary_domain)
         
         return {
             "site_id": site_id,
@@ -247,7 +250,8 @@ async def list_certificates(_: dict = Depends(get_current_user)) -> Dict[str, An
         return {
             "certificates": [cert.__dict__ for cert in certificates],
             "total": len(certificates),
-            "certbot_available": ssl_service.is_certbot_available()
+            "certbot_available": ssl_service.is_certbot_available(),
+            "certbot_version": ssl_service.get_certbot_version()
         }
     
     except Exception as e:
@@ -349,6 +353,7 @@ async def get_ssl_system_status(_: dict = Depends(get_current_user)) -> Dict[str
         
         return {
             "certbot_available": ssl_service.is_certbot_available(),
+            "certbot_version": ssl_service.get_certbot_version(),
             "letsencrypt_directory": ssl_service.letsencrypt_dir,
             "ssl_sites_count": len(ssl_sites),
             "expiring_certificates_count": len(expiring),
