@@ -435,7 +435,7 @@ function addServerInput(value = '') {
     const inputGroup = document.createElement('div');
     inputGroup.className = 'input-group mb-2';
     inputGroup.innerHTML = `
-        <input type="url" class="form-control upstream-server" placeholder="http://server:port" value="${value}">
+        <input type="text" class="form-control upstream-server" placeholder="http://server:port" value="${value}">
         <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.remove()">
             <i class="fas fa-trash"></i>
         </button>
