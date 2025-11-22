@@ -639,6 +639,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Let's Encrypt](https://letsencrypt.org/) - Free SSL certificates
 - [Font Awesome](https://fontawesome.com/) - Icons
 - [SQLite](https://sqlite.org/) - Database engine
+- [Claude Code](https://claude.ai/code) - The entire Code
 
 ## 📞 Support
 
