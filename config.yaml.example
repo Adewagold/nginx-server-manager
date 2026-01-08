@@ -90,9 +90,9 @@ ssl:
   # Email for Let's Encrypt registration (REQUIRED - update this!)
   email: "admin@yourdomain.com"
   
-  # Use staging environment for testing (set to false for production certificates)
-  # Staging certificates are not trusted by browsers but useful for testing
-  staging: true
+  # Use staging environment for testing (set to true only for testing)
+  # Staging certificates are NOT trusted by browsers - keep false for production
+  staging: false
   
   # Automatic certificate renewal
   auto_renew: true

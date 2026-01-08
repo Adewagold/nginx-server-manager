@@ -80,6 +80,11 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to check if nginx is installed (handles /usr/sbin not in PATH)
+nginx_installed() {
+    command -v nginx >/dev/null 2>&1 || [[ -x /usr/sbin/nginx ]]
+}
+
 # Function to check if service is running
 service_running() {
     systemctl is-active --quiet "$1" 2>/dev/null
@@ -273,7 +278,7 @@ install_system_packages() {
     local packages=()
     
     # Common packages for all distributions
-    if ! command_exists nginx; then
+    if ! nginx_installed; then
         packages+=(nginx)
     fi
     
@@ -332,8 +337,8 @@ install_system_packages() {
     
     # Verify installations
     local failed_packages=()
-    
-    if ! command_exists nginx; then
+
+    if ! nginx_installed; then
         failed_packages+=(nginx)
     fi
     

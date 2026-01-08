@@ -43,8 +43,8 @@ class SSLService:
         self.config_dir = os.path.join(self.home_dir, ".letsencrypt")
         self.work_dir = os.path.join(self.home_dir, ".letsencrypt/work")
         self.logs_dir = os.path.join(self.home_dir, ".letsencrypt/logs")
-        # Get SSL staging setting from config
-        self.use_staging = self.config.ssl.staging if hasattr(self.config, 'ssl') else True
+        # Get SSL staging setting from config (default to production certificates)
+        self.use_staging = self.config.ssl.staging if hasattr(self.config, 'ssl') else False
         
         # Create directories if they don't exist
         os.makedirs(self.config_dir, exist_ok=True)
