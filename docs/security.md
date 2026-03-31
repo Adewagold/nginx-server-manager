@@ -214,7 +214,8 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
+    http2 on;
     server_name your-domain.com;
     
     # SSL configuration
