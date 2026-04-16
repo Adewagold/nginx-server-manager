@@ -209,12 +209,14 @@ If running behind nginx or another reverse proxy:
 # /etc/nginx/sites-available/nginx-manager
 server {
     listen 80;
+    listen [::]:80 ipv6only=on;
     server_name your-domain.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
+    listen [::]:443 ssl ipv6only=on;
     http2 on;
     server_name your-domain.com;
     
